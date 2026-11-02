@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="8a52750b-0fbe-489f-9035-cfa553889ed5" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="HTML File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;JuanJosephRamosChumpitaz&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/JuanJosephRamosChumpitaz/siga.git&quot;,
+    &quot;accountId&quot;: &quot;b80f283e-8d78-4157-85b5-04ffa5df279f&quot;
+  }
+}</component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.0011680652937955" />
+      <entry key="MS500" value="1.7236781800455798" />
+      <entry key="S2" value="5.1681557256506725" />
+      <entry key="S5" value="9.483781916455497" />
+      <entry key="S10" value="13.48414681727333" />
+      <entry key="S30" value="19.952029118523075" />
+      <entry key="S60" value="24.802108024833995" />
+      <entry key="M2" value="29.227839447052336" />
+      <entry key="M5" value="33.24046950677077" />
+      <entry key="M10" value="34.970951776610846" />
+      <entry key="M15" value="35.609667541571646" />
+      <entry key="M30" value="36.284698478973915" />
+      <entry key="H1" value="36.63704568826186" />
+      <entry key="H2" value="36.81716109609306" />
+      <entry key="H4" value="36.90823548649258" />
+      <entry key="D1" value="36.984657589878665" />
+      <entry key="W1" value="36.997807038413875" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="1.2249964879843738E-17" />
+      <entry key="MS500" value="4.1459777658537104E-4" />
+      <entry key="S2" value="0.1426943812150011" />
+      <entry key="S5" value="0.46007612279908155" />
+      <entry key="S10" value="0.7110562801763386" />
+      <entry key="S30" value="1.2009534680171066" />
+      <entry key="S60" value="1.5052136049685907" />
+      <entry key="M2" value="1.7217636138529144" />
+      <entry key="M5" value="1.8801579671685338" />
+      <entry key="M10" value="1.938546414688998" />
+      <entry key="M15" value="1.9586818764135745" />
+      <entry key="M30" value="1.9791642305808486" />
+      <entry key="H1" value="1.9895375258936192" />
+      <entry key="H2" value="1.9947575636106472" />
+      <entry key="H4" value="1.9973759754461198" />
+      <entry key="D1" value="1.9995622722471573" />
+      <entry key="W1" value="1.9999374578976006" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="0.08134910773804627" />
+      <entry key="MS500" value="1.3222148846420676" />
+      <entry key="S2" value="5.1424711802221985" />
+      <entry key="S5" value="9.825754340733269" />
+      <entry key="S10" value="14.114268447117505" />
+      <entry key="S30" value="21.111977699368868" />
+      <entry key="S60" value="26.282083224428888" />
+      <entry key="M2" value="30.93512402756408" />
+      <entry key="M5" value="35.114235205379416" />
+      <entry key="M10" value="36.906181902871246" />
+      <entry key="M15" value="37.56610986592925" />
+      <entry key="M30" value="38.26272801501301" />
+      <entry key="H1" value="38.626012021692986" />
+      <entry key="H2" value="38.81163208692872" />
+      <entry key="H4" value="38.90546792945618" />
+      <entry key="D1" value="38.984195905696694" />
+      <entry key="W1" value="38.99774107312104" />
+    </decayedShown>
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 1,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3LXV9g7CVlM3b6oey4yCCA4wGh0" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;DefaultHtmlFileTemplate&quot;: &quot;HTML File&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Joseph/IdeaProjects/siga&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.jshint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.jshint&quot;: &quot;&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RunManager">
+    <configuration default="true" type="JetRunConfigurationType">
+      <module name="siga" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
+      <module name="siga" />
+      <option name="filePath" />
+      <method v="2" />
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-a203e0a19954-intellij.indexing.shared.core-IU-262.10968.63" />
+        <option value="bundled-js-predefined-d6986cc7102b-4abd2a77f808-JavaScript-IU-262.10968.63" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="8a52750b-0fbe-489f-9035-cfa553889ed5" name="Changes" comment="" />
+      <created>1793600250101</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1793600250101</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
