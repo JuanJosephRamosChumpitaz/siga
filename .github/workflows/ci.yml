@@ -8,18 +8,37 @@ jobs:
   compilar-backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
+      - name: checkout del codigo
+        uses: actions/checkout@v4
+
+      - name: configurar jdk 17
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-      - run: cd backend && ./mvnw clean install -DskipTests
+          cache: 'maven'
+
+      - name: dar permisos de ejecucion a mvnw
+        run: chmod +x backend/mvnw
+
+      - name: compilar backend con maven
+        run: cd backend && ./mvnw clean install -DskipTests
 
   compilar-frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - name: checkout del codigo
+        uses: actions/checkout@v4
+
+      - name: configurar node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
-      - run: cd frontend && npm install && npm run build
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: instalar dependencias y compilar frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
