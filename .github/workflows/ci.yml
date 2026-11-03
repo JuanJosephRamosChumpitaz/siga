@@ -1,44 +1,53 @@
-name: pipeline siga
-
+name: ci
 on:
   push:
-    branches: [ "main", "desarrollo" ]
+    branches: [main, desarrollo]
+  pull_request:
+    branches: [main, desarrollo]
 
 jobs:
   compilar-backend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: pecosa
+          MYSQL_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
     steps:
-      - name: checkout del codigo
-        uses: actions/checkout@v4
-
-      - name: configurar jdk 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
+          distribution: temurin
           java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: dar permisos de ejecucion a mvnw
-        run: chmod +x backend/mvnw
-
-      - name: compilar backend con maven
-        run: cd backend && ./mvnw clean install -DskipTests
+          cache: maven
+      - run: chmod +x mvnw
+      - run: ./mvnw -B verify
+        env:
+          DB_URL: jdbc:mysql://127.0.0.1:3306/pecosa?allowPublicKeyRetrieval=true&useSSL=false
+          DB_USER: root
+          DB_PASSWORD: root
+          JWT_SECRET: secreto-de-prueba-para-ci-secreto-de-prueba-123456
 
   compilar-frontend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
-      - name: checkout del codigo
-        uses: actions/checkout@v4
-
-      - name: configurar node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 26
+          cache: npm
           cache-dependency-path: frontend/package-lock.json
-
-      - name: instalar dependencias y compilar frontend
-        run: |
-          cd frontend
-          npm ci
-          npm run build
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npm run build
