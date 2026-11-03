@@ -1,7 +1,6 @@
-import { createContext, useContext, useState } from 'react';
+import { useState } from 'react';
 import api from '../services/api';
-
-const AuthContext = createContext(null);
+import { AuthContext } from './auth';
 
 export function AuthProvider({ children }) {
     const [usuario, setUsuario] = useState(() => {
@@ -11,8 +10,12 @@ export function AuthProvider({ children }) {
 
     async function login(username, password) {
         const { data } = await api.post('/auth/login', { username, password });
+        const datosUsuario = {
+            username: data.username,
+            rol: data.rol,
+            nombreCompleto: data.nombreCompleto,
+        };
         localStorage.setItem('token', data.token);
-        const { token, ...datosUsuario } = data;
         localStorage.setItem('usuario', JSON.stringify(datosUsuario));
         setUsuario(datosUsuario);
     }
@@ -28,5 +31,3 @@ export function AuthProvider({ children }) {
         </AuthContext.Provider>
     );
 }
-
-export const useAuth = () => useContext(AuthContext);

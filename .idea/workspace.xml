@@ -5,52 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8a52750b-0fbe-489f-9035-cfa553889ed5" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.github/workflows/cd.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/config/DataInitializer.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/config/SecurityConfig.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/controllers/AuthController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/controllers/DashboardController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/dtos/DashboardResumen.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/dtos/LoginRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/dtos/LoginResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/exception/ManejadorErrores.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Categoria.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Lote.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Pecosa.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/PecosaDetalle.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Persona.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Producto.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Rol.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Unidad.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Usuario.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/repository/CategoriaRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/repository/LoteRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/repository/PecosaDetalleRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/repository/PecosaRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/repository/PersonaRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/repository/ProductoRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/repository/RolRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/repository/UnidadRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/repository/UsuarioRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/security/JwtAuthFilter.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/security/JwtService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/security/UsuarioDetailsService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/services/DashboardService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/resources/application-dev.properties" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/context/AuthContext.jsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/pages/Dashboard.jsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/pages/Login.jsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/routes/RutaProtegida.jsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/services/api.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.github/workflows/ci.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/ci.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/context/auth.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.github/workflows/cd.yml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/resources/application.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/index.css" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/index.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/vite.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/vite.config.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/context/AuthContext.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/context/AuthProvider.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Dashboard.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Dashboard.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Login.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Login.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/routes/RutaProtegida.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/routes/RutaProtegida.jsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -86,61 +48,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="5.242822408369439E-6" />
-      <entry key="MS500" value="0.1603597918149028" />
-      <entry key="S2" value="2.031406240360389" />
-      <entry key="S5" value="3.7534560266498813" />
-      <entry key="S10" value="4.707426311297086" />
-      <entry key="S30" value="5.522617241985659" />
-      <entry key="S60" value="5.754806400361122" />
-      <entry key="M2" value="5.875720230879761" />
-      <entry key="M5" value="5.949876556855945" />
-      <entry key="M10" value="5.9748697262368395" />
-      <entry key="M15" value="5.983498127640971" />
-      <entry key="M30" value="6.096302560190591" />
-      <entry key="H1" value="8.067441863310007" />
-      <entry key="H2" value="15.213820371550492" />
-      <entry key="H4" value="25.43726662393501" />
-      <entry key="D1" value="42.204330639440556" />
-      <entry key="W1" value="46.27784801891055" />
+      <entry key="MS100" value="1.0015706599168235" />
+      <entry key="MS500" value="1.5305010759445032" />
+      <entry key="S2" value="4.3389721888146395" />
+      <entry key="S5" value="6.476574810508278" />
+      <entry key="S10" value="7.58133796685758" />
+      <entry key="S30" value="8.485937461587554" />
+      <entry key="S60" value="8.737362374794694" />
+      <entry key="M2" value="8.867242306160183" />
+      <entry key="M5" value="8.946546690227581" />
+      <entry key="M10" value="8.973214559250238" />
+      <entry key="M15" value="8.982129973924515" />
+      <entry key="M30" value="8.991481371970757" />
+      <entry key="H1" value="9.062724482026809" />
+      <entry key="H2" value="10.386260625574042" />
+      <entry key="H4" value="16.68352662988483" />
+      <entry key="D1" value="43.57112957900179" />
+      <entry key="W1" value="53.97752955658362" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.0" />
-      <entry key="MS500" value="1.0" />
-      <entry key="S2" value="1.0" />
-      <entry key="S5" value="1.0" />
-      <entry key="S10" value="1.0" />
-      <entry key="S30" value="1.0" />
-      <entry key="S60" value="1.0" />
-      <entry key="M2" value="1.0" />
-      <entry key="M5" value="1.0000000000000009" />
-      <entry key="M10" value="1.000000051566882" />
-      <entry key="M15" value="1.0000199796961982" />
-      <entry key="M30" value="1.00774174647978" />
-      <entry key="H1" value="1.1523968737194001" />
-      <entry key="H2" value="1.6761571493187235" />
-      <entry key="H4" value="2.424243337017791" />
-      <entry key="D1" value="3.6497101935170724" />
-      <entry key="W1" value="3.9472568485203134" />
+      <entry key="MS100" value="2.051946801660869E-14" />
+      <entry key="MS500" value="0.0018299247009227065" />
+      <entry key="S2" value="0.20682751064382113" />
+      <entry key="S5" value="0.5324064668145606" />
+      <entry key="S10" value="0.7296618852691704" />
+      <entry key="S30" value="0.9002722983760023" />
+      <entry key="S60" value="0.9488268010422148" />
+      <entry key="M2" value="0.9740774101898754" />
+      <entry key="M5" value="0.9895491924072601" />
+      <entry key="M10" value="0.9947608719727193" />
+      <entry key="M15" value="0.9965041958426318" />
+      <entry key="M30" value="0.9983204811951165" />
+      <entry key="H1" value="1.008723668979862" />
+      <entry key="H2" value="1.1525377105840913" />
+      <entry key="H4" value="1.7321495252269443" />
+      <entry key="D1" value="3.9895923702642335" />
+      <entry key="W1" value="4.83634358833836" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.0021082947378121978" />
-      <entry key="MS500" value="0.4055664705914536" />
-      <entry key="S2" value="2.6490241355052557" />
-      <entry key="S5" value="4.545133139420743" />
-      <entry key="S10" value="5.5859905569574195" />
-      <entry key="S30" value="6.476775997691509" />
-      <entry key="S60" value="6.731085301556171" />
-      <entry key="M2" value="6.8636481059597285" />
-      <entry key="M5" value="6.944995381180915" />
-      <entry key="M10" value="6.972420336388474" />
-      <entry key="M15" value="6.981883136934444" />
-      <entry key="M30" value="7.103219622686005" />
-      <entry key="H1" value="9.219368036945578" />
-      <entry key="H2" value="16.88963694165264" />
-      <entry key="H4" value="27.861264563686273" />
-      <entry key="D1" value="45.85397943172973" />
-      <entry key="W1" value="50.225095384764984" />
+      <entry key="MS100" value="0.03007438872065262" />
+      <entry key="MS500" value="1.018491369891551" />
+      <entry key="S2" value="4.333733101132033" />
+      <entry key="S5" value="6.888891126091223" />
+      <entry key="S10" value="8.24040439865636" />
+      <entry key="S30" value="9.359626821818638" />
+      <entry key="S60" value="9.672462305569683" />
+      <entry key="M2" value="9.834342947292672" />
+      <entry key="M5" value="9.933277381308926" />
+      <entry key="M10" value="9.96656149797141" />
+      <entry key="M15" value="9.977690503259655" />
+      <entry key="M30" value="9.989329439592375" />
+      <entry key="H1" value="10.071207921226657" />
+      <entry key="H2" value="11.538649065691224" />
+      <entry key="H4" value="18.415542918289624" />
+      <entry key="D1" value="47.56066180152849" />
+      <entry key="W1" value="58.81386252131778" />
     </decayedShown>
   </component>
   <component name="ProblemsViewState">
