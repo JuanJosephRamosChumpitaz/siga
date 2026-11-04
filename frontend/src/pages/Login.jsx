@@ -29,15 +29,33 @@ export default function Login() {
             <form className="login-tarjeta" onSubmit={enviar}>
                 <h1>siga</h1>
                 <p className="subtitulo">sistema de gestión de almacén · iestp cañete</p>
+
                 <label>
                     Usuario
-                    <input value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required />
+                    <input
+                        name="username"
+                        autoComplete="on"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        autoFocus
+                        required
+                    />
                 </label>
+
                 <label>
                     Contraseña
-                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                    <input
+                        type="password"
+                        name="password"
+                        autoComplete="on"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                    />
                 </label>
+
                 {error && <p className="error">{error}</p>}
+
                 <button disabled={cargando}>{cargando ? 'Ingresando...' : 'Ingresar'}</button>
             </form>
         </main>
