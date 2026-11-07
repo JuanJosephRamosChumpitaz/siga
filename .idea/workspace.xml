@@ -5,10 +5,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8a52750b-0fbe-489f-9035-cfa553889ed5" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/backend/src/main/resources/db/migration/v2__actualizar_esquema.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/src/main/resources/db/migration/V2__actualizar_esquema.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Lote.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Lote.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Pecosa.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Pecosa.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Persona.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Persona.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Producto.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Producto.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Usuario.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Usuario.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/resources/application.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Login.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Login.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/resources/db/migration/v2__actualizar_esquema.sql" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/siga/backend/model/Area.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -44,61 +50,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0015706599168235" />
-      <entry key="MS500" value="1.5305010759445032" />
-      <entry key="S2" value="4.3389721888146395" />
-      <entry key="S5" value="6.476574810508278" />
-      <entry key="S10" value="7.58133796685758" />
-      <entry key="S30" value="8.485937461587554" />
-      <entry key="S60" value="8.737362374794694" />
-      <entry key="M2" value="8.867242306160183" />
-      <entry key="M5" value="8.946546690227581" />
-      <entry key="M10" value="8.973214559250238" />
-      <entry key="M15" value="8.982129973924515" />
-      <entry key="M30" value="8.991481371970757" />
-      <entry key="H1" value="9.062724482026809" />
-      <entry key="H2" value="10.386260625574042" />
-      <entry key="H4" value="16.68352662988483" />
-      <entry key="D1" value="43.57112957900179" />
-      <entry key="W1" value="53.97752955658362" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0000000000000082" />
+      <entry key="S2" value="1.0003005723665392" />
+      <entry key="S5" value="1.0390103296531754" />
+      <entry key="S10" value="1.1975103405278058" />
+      <entry key="S30" value="1.5881432070823673" />
+      <entry key="S60" value="1.9150062196905597" />
+      <entry key="M2" value="2.6903725630614206" />
+      <entry key="M5" value="5.22651501684275" />
+      <entry key="M10" value="8.652357371208167" />
+      <entry key="M15" value="10.768711425539765" />
+      <entry key="M30" value="13.753978828635866" />
+      <entry key="H1" value="15.743845513894286" />
+      <entry key="H2" value="18.05425316786851" />
+      <entry key="H4" value="24.70816530788961" />
+      <entry key="D1" value="52.19176448176184" />
+      <entry key="W1" value="62.91129748268763" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="2.051946801660869E-14" />
-      <entry key="MS500" value="0.0018299247009227065" />
-      <entry key="S2" value="0.20682751064382113" />
-      <entry key="S5" value="0.5324064668145606" />
-      <entry key="S10" value="0.7296618852691704" />
-      <entry key="S30" value="0.9002722983760023" />
-      <entry key="S60" value="0.9488268010422148" />
-      <entry key="M2" value="0.9740774101898754" />
-      <entry key="M5" value="0.9895491924072601" />
-      <entry key="M10" value="0.9947608719727193" />
-      <entry key="M15" value="0.9965041958426318" />
-      <entry key="M30" value="0.9983204811951165" />
-      <entry key="H1" value="1.008723668979862" />
-      <entry key="H2" value="1.1525377105840913" />
-      <entry key="H4" value="1.7321495252269443" />
-      <entry key="D1" value="3.9895923702642335" />
-      <entry key="W1" value="4.83634358833836" />
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="4.6501264543086534E-150" />
+      <entry key="S5" value="2.485797682769435E-60" />
+      <entry key="S10" value="2.174063911242E-30" />
+      <entry key="S30" value="2.0443348209459034E-10" />
+      <entry key="S60" value="2.0205407017672133E-5" />
+      <entry key="M2" value="0.006355765160995138" />
+      <entry key="M5" value="0.20038522562109526" />
+      <entry key="M10" value="0.6330596118377824" />
+      <entry key="M15" value="0.9289072469788894" />
+      <entry key="M30" value="1.3630632277275303" />
+      <entry key="H1" value="1.658995297546235" />
+      <entry key="H2" value="1.9561865541446806" />
+      <entry key="H4" value="2.604532640784613" />
+      <entry key="D1" value="4.94995657509123" />
+      <entry key="W1" value="5.829697351797867" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.03007438872065262" />
-      <entry key="MS500" value="1.018491369891551" />
-      <entry key="S2" value="4.333733101132033" />
-      <entry key="S5" value="6.888891126091223" />
-      <entry key="S10" value="8.24040439865636" />
-      <entry key="S30" value="9.359626821818638" />
-      <entry key="S60" value="9.672462305569683" />
-      <entry key="M2" value="9.834342947292672" />
-      <entry key="M5" value="9.933277381308926" />
-      <entry key="M10" value="9.96656149797141" />
-      <entry key="M15" value="9.977690503259655" />
-      <entry key="M30" value="9.989329439592375" />
-      <entry key="H1" value="10.071207921226657" />
-      <entry key="H2" value="11.538649065691224" />
-      <entry key="H4" value="18.415542918289624" />
-      <entry key="D1" value="47.56066180152849" />
-      <entry key="W1" value="58.81386252131778" />
+      <entry key="MS100" value="1.1628881812059778E-4" />
+      <entry key="MS500" value="0.16334565673664664" />
+      <entry key="S2" value="0.6357364018451257" />
+      <entry key="S5" value="0.836621957159403" />
+      <entry key="S10" value="0.9618032462170455" />
+      <entry key="S30" value="1.3404009889034603" />
+      <entry key="S60" value="1.7393551310710924" />
+      <entry key="M2" value="2.5893393578494632" />
+      <entry key="M5" value="5.376500276241411" />
+      <entry key="M10" value="9.25809060492555" />
+      <entry key="M15" value="11.678747115045718" />
+      <entry key="M30" value="15.107203106241869" />
+      <entry key="H1" value="17.39779841675476" />
+      <entry key="H2" value="20.007859086687127" />
+      <entry key="H4" value="27.31134248172606" />
+      <entry key="D1" value="57.141455796731" />
+      <entry key="W1" value="68.74095483191796" />
     </decayedShown>
   </component>
   <component name="ProblemsViewState">
@@ -113,31 +119,31 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "DefaultHtmlFileTemplate": "HTML File",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "desarrollo",
-    "ignore.virus.scanning.warn.message": "true",
-    "junie.onboarding.icon.badge.shown": "true",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "C:/Users/Joseph/IdeaProjects/siga",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.jshint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.jshint": "",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "to.speed.mode.migration.done": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;DefaultHtmlFileTemplate&quot;: &quot;HTML File&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;desarrollo&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Joseph/IdeaProjects/siga&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.jshint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.jshint&quot;: &quot;&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\Joseph\IdeaProjects\siga\backend\src\main\java\com\siga" />

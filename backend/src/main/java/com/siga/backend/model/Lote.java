@@ -7,6 +7,7 @@ import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -37,9 +38,17 @@ public class Lote {
     private BigDecimal costoUnitario;
 
     public enum Estado { Activo, Agotado, Vencido }
+
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false)
     private Estado estado;
 
+    @Column(name = "fecha_vencimiento")
+    private LocalDate fechaVencimiento; // DATE en MySQL mapea mejor a LocalDate
 
+    @Column(name = "proveedor", length = 255)
+    private String proveedor;
+
+    @Column(name = "documento_sustento", length = 255)
+    private String documentoSustento;
 }
