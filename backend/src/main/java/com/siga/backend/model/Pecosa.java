@@ -24,7 +24,7 @@ public class Pecosa {
     @Column(name = "fecha_emision", nullable = false)
     private Instant fechaEmision;
 
-    @Column(name = "observaciones")
+    @Column(name = "observaciones", length = 255)
     private String observaciones;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -35,5 +35,7 @@ public class Pecosa {
     @JoinColumn(name = "idpersona_almacenista", nullable = false)
     private Persona idpersonaAlmacenista;
 
-
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idarea")
+    private Area idarea; // Clave foránea agregada según diagrama
 }

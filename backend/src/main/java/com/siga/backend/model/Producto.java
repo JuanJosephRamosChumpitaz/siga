@@ -30,9 +30,9 @@ public class Producto {
     @Column(name = "precio_unidad", nullable = false, precision = 10, scale = 2)
     private BigDecimal precioUnidad;
 
-    @ColumnDefault("0")
-    @Column(name = "stock_general", nullable = false)
-    private Integer stockGeneral;
+    @ColumnDefault("0.00")
+    @Column(name = "stock_general", nullable = false, precision = 12, scale = 2)
+    private BigDecimal stockGeneral;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "idcategoria", nullable = false)
@@ -42,5 +42,11 @@ public class Producto {
     @JoinColumn(name = "idunidad", nullable = false)
     private Unidad idunidad;
 
+    @ColumnDefault("0")
+    @Column(name = "perecible", nullable = false)
+    private Boolean perecible;
 
+    @ColumnDefault("0.00")
+    @Column(name = "stock_minimo", nullable = false, precision = 12, scale = 2)
+    private BigDecimal stockMinimo;
 }

@@ -11,7 +11,7 @@ import lombok.Setter;
 public class Usuario {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "idusuario")
+    @Column(name = "idusuario", nullable = false)
     private Integer id;
 
     @Column(name = "user", nullable = false, length = 45)
@@ -22,9 +22,9 @@ public class Usuario {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idpersona")
-    private Persona persona;
+    private Persona persona; // Lombok generará automáticamente getPersona() y setPersona()
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idrol")
-    private Rol rol;
+    private Rol rol; // Lombok generará automáticamente getRol() y setRol()
 }
