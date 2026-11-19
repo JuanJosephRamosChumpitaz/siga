@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -15,6 +15,7 @@ import {
   Upload,
   X,
   AlertTriangle,
+  FolderTree,
 } from 'lucide-react';
 
 export function CuentasContablesView({
