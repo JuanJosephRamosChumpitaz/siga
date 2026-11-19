@@ -25,7 +25,7 @@ public class Persona {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idarea")
-    private Area idarea; // Clave foránea hacia Area (Nuleable según el diagrama)
+    private Area idarea;
 
     @Column(name = "cargo", length = 100)
     private String cargo;

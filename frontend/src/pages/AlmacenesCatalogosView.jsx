@@ -184,3 +184,5 @@ export function AlmacenesCatalogosView({
       </div>
   )
 }
+
+export default AlmacenesCatalogosView;

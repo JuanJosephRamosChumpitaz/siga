@@ -2,31 +2,58 @@ import { useState } from 'react';
 import api from '../services/api';
 import { AuthContext } from './auth';
 
-export function AuthProvider({ children }) {
-    const [usuario, setUsuario] = useState(() => {
-        const guardado = localStorage.getItem('usuario');
-        return guardado ? JSON.parse(guardado) : null;
-    });
+function leerUsuarioGuardado() {
+    try {
+        const raw = localStorage.getItem('usuario');
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+}
 
-    async function login(username, password) {
+export function AuthProvider({ children }) {
+    const [token, setToken] = useState(() => localStorage.getItem('token'));
+    const [usuario, setUsuario] = useState(() => leerUsuarioGuardado());
+
+    const login = async (username, password) => {
         const { data } = await api.post('/auth/login', { username, password });
-        const datosUsuario = {
+
+        const perfil = {
+            idUsuario: data.idUsuario,
             username: data.username,
             rol: data.rol,
+            idPersona: data.idPersona,
             nombreCompleto: data.nombreCompleto,
+            idArea: data.idArea,
+            nombreArea: data.nombreArea,
         };
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('usuario', JSON.stringify(datosUsuario));
-        setUsuario(datosUsuario);
-    }
 
-    function logout() {
-        localStorage.clear();
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('usuario', JSON.stringify(perfil));
+        setToken(data.token);
+        setUsuario(perfil);
+
+        return perfil;
+    };
+
+    const logout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuario');
+        setToken(null);
         setUsuario(null);
-    }
+    };
 
     return (
-        <AuthContext.Provider value={{ usuario, login, logout }}>
+        <AuthContext.Provider
+            value={{
+                token,
+                usuario,
+                user: usuario,
+                isAuthenticated: Boolean(token && usuario),
+                login,
+                logout,
+            }}
+        >
             {children}
         </AuthContext.Provider>
     );

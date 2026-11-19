@@ -161,3 +161,5 @@ export function AuditoriaView({ state, onSwitchUser }) {
       </div>
   )
 }
+
+export default AuditoriaView;

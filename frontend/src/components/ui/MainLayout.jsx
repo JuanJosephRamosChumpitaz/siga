@@ -1,150 +1,208 @@
-import React, { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard,
-    ArrowLeftRight,
-    Package,
-    ClipboardCheck,
+    Users,
+    FolderTree,
     BookOpen,
-    Warehouse,
+    Package,
+    ArrowLeftRight,
+    FileSignature,
+    ClipboardList,
+    ClipboardCheck,
+    BarChart3,
     ShieldCheck,
-    Settings,
     LogOut,
-    Menu,
-    X,
-    User,
-} from 'lucide-react'
-import { useAuth } from '../../context/auth'
+    UserCircle2,
+} from 'lucide-react';
+import { useAuth } from '../../context/auth';
+
+const MENU_SECCIONES = [
+    {
+        titulo: 'GENERAL',
+        items: [
+            {
+                to: '/dashboard',
+                label: 'Panel Principal',
+                icon: LayoutDashboard,
+                roles: ['ADMIN', 'ALMACENERO', 'ABASTECIMIENTO', 'SOLICITANTE'],
+            },
+        ],
+    },
+    {
+        titulo: 'OPERACIONES DE ALMACÉN',
+        items: [
+            {
+                to: '/solicitudes',
+                label: 'PECOSA y Firmas',
+                icon: FileSignature,
+                roles: ['ADMIN', 'ALMACENERO', 'ABASTECIMIENTO', 'SOLICITANTE'],
+            },
+            {
+                to: '/movimientos',
+                label: 'Entradas y Salidas',
+                icon: ArrowLeftRight,
+                roles: ['ADMIN', 'ALMACENERO'],
+            },
+            {
+                to: '/kardex',
+                label: 'Kardex y Control Visible',
+                icon: ClipboardList,
+                roles: ['ADMIN', 'ALMACENERO'],
+            },
+            {
+                to: '/inventario-fisico',
+                label: 'Inventario Físico',
+                icon: ClipboardCheck,
+                roles: ['ADMIN', 'ALMACENERO'],
+            },
+        ],
+    },
+    {
+        titulo: 'CATÁLOGOS Y CUENTAS',
+        items: [
+            {
+                to: '/productos',
+                label: 'Catálogo de Bienes',
+                icon: Package,
+                roles: ['ADMIN', 'ALMACENERO'],
+            },
+            {
+                to: '/cuentas',
+                label: 'Cuentas Contables',
+                icon: BookOpen,
+                roles: ['ADMIN', 'ALMACENERO'],
+            },
+            {
+                to: '/catalogos',
+                label: 'Proveedores y Unidades',
+                icon: FolderTree,
+                roles: ['ADMIN', 'ALMACENERO'],
+            },
+        ],
+    },
+    {
+        titulo: 'CONTROL Y ADMINISTRACIÓN',
+        items: [
+            {
+                to: '/reportes',
+                label: 'Reportes Oficiales',
+                icon: BarChart3,
+                roles: ['ADMIN', 'ALMACENERO', 'ABASTECIMIENTO'],
+            },
+            {
+                to: '/usuarios',
+                label: 'Usuarios y Áreas',
+                icon: Users,
+                roles: ['ADMIN'],
+            },
+            {
+                to: '/auditoria',
+                label: 'Auditoría',
+                icon: ShieldCheck,
+                roles: ['ADMIN'],
+            },
+        ],
+    },
+];
 
 export default function MainLayout() {
-    const [sidebarOpen, setSidebarOpen] = useState(false)
-    const { usuario, logout } = useAuth()
-    const navigate = useNavigate()
+    const { usuario, logout } = useAuth();
+    const navigate = useNavigate();
+    const rolActual = usuario?.rol?.toUpperCase() || 'SOLICITANTE';
 
     const handleLogout = () => {
-        logout()
-        navigate('/login')
-    }
-
-    const navItems = [
-        { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { to: '/catalogos', label: 'Almacenes y Catálogos', icon: Warehouse },
-        { to: '/productos', label: 'Productos', icon: Package },
-        { to: '/movimientos', label: 'Movimientos', icon: ArrowLeftRight },
-        { to: '/kardex', label: 'Kardex', icon: ClipboardCheck },
-    ]
+        logout();
+        navigate('/login', { replace: true });
+    };
 
     return (
-        <div className="flex h-screen overflow-hidden bg-[#f3f7f5] text-[#132b24]">
-            {/* Fondo oscuro en móvil */}
-            {sidebarOpen && (
-                <div
-                    className="fixed inset-0 z-30 bg-[#092d20]/60 backdrop-blur-xs lg:hidden"
-                    onClick={() => setSidebarOpen(false)}
-                />
-            )}
-
-            {/* Barra Lateral (Sidebar) */}
-            <aside
-                className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-[#064c32] text-white transition-transform duration-200 lg:static lg:translate-x-0 ${
-                    sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-                }`}
-            >
-                {/* Logo Institucional */}
-                <div className="flex h-16 items-center justify-between border-b border-white/10 px-5">
-                    <div className="flex items-center gap-3">
-                        <div className="flex size-9 items-center justify-center rounded-xl bg-[#b7d925] font-black text-[#064c32] text-sm">
+        <div className="min-h-screen flex bg-slate-50 text-slate-900">
+            {/* Barra lateral institucional */}
+            <aside className="w-72 shrink-0 bg-[#064c32] text-white flex flex-col justify-between shadow-lg">
+                <div>
+                    <div className="px-6 py-5 border-b border-emerald-800/70 flex items-center gap-3">
+                        <div className="h-11 w-11 rounded-full bg-lime-400 text-[#064c32] font-bold text-lg flex items-center justify-center shrink-0">
                             SG
                         </div>
                         <div>
-              <span className="block text-base font-black tracking-tight leading-none">
-                SIGAL
-              </span>
-                            <span className="text-[10px] text-white/70">IESTP Cañete</span>
+                            <h1 className="text-xl font-bold tracking-wide leading-tight">SIGA</h1>
+                            <p className="text-sm text-emerald-200">IESTP Cañete</p>
                         </div>
                     </div>
-                    <button
-                        onClick={() => setSidebarOpen(false)}
-                        className="rounded-lg p-1 text-white/70 hover:bg-white/10 lg:hidden"
-                    >
-                        <X className="size-5" />
-                    </button>
+
+                    <nav className="px-3 py-4 space-y-5 overflow-y-auto">
+                        {MENU_SECCIONES.map((seccion) => {
+                            const visibles = seccion.items.filter((item) => item.roles.includes(rolActual));
+                            if (visibles.length === 0) return null;
+
+                            return (
+                                <div key={seccion.titulo}>
+                                    <p className="px-3 mb-2 text-xs font-semibold tracking-wider text-emerald-300/90">
+                                        {seccion.titulo}
+                                    </p>
+                                    <div className="space-y-1">
+                                        {visibles.map((item) => {
+                                            const Icon = item.icon;
+                                            return (
+                                                <NavLink
+                                                    key={item.to}
+                                                    to={item.to}
+                                                    className={({ isActive }) =>
+                                                        `flex items-center gap-3 px-3.5 py-3 rounded-xl text-base font-medium transition-colors ${
+                                                            isActive
+                                                                ? 'bg-lime-400 text-[#064c32] font-semibold shadow-sm'
+                                                                : 'text-emerald-50 hover:bg-emerald-800/70'
+                                                        }`
+                                                    }
+                                                >
+                                                    <Icon className="w-5 h-5 shrink-0" />
+                                                    <span>{item.label}</span>
+                                                </NavLink>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </nav>
                 </div>
 
-                {/* Navegación */}
-                <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-                    {navItems.map(({ to, label, icon: Icon }) => (
-                        <NavLink
-                            key={to}
-                            to={to}
-                            end={to === '/'}
-                            onClick={() => setSidebarOpen(false)}
-                            className={({ isActive }) =>
-                                `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${
-                                    isActive
-                                        ? 'bg-[#b7d925] text-[#064c32] font-bold shadow-xs'
-                                        : 'text-white/80 hover:bg-white/10 hover:text-white'
-                                }`
-                            }
-                        >
-                            <Icon className="size-4 shrink-0" />
-                            <span>{label}</span>
-                        </NavLink>
-                    ))}
-                </nav>
-
-                {/* Botón Salir */}
-                <div className="border-t border-white/10 p-3">
+                <div className="p-4 border-t border-emerald-800/70">
                     <button
+                        type="button"
                         onClick={handleLogout}
-                        className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white/80 transition hover:bg-rose-500/20 hover:text-rose-200 cursor-pointer"
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium text-emerald-100 hover:bg-emerald-800/80 transition-colors cursor-pointer"
                     >
-                        <LogOut className="size-4 shrink-0" />
+                        <LogOut className="w-5 h-5" />
                         <span>Cerrar Sesión</span>
                     </button>
                 </div>
             </aside>
 
-            {/* Contenedor Derecho (Navbar + Outlet) */}
-            <div className="flex flex-1 flex-col overflow-hidden">
-                {/* Barra Superior (Navbar) */}
-                <header className="flex h-16 shrink-0 items-center justify-between border-b border-[#e0e8e4] bg-white px-4 lg:px-8">
-                    <button
-                        onClick={() => setSidebarOpen(true)}
-                        className="rounded-lg p-2 text-[#586860] hover:bg-[#edf3f0] lg:hidden"
-                    >
-                        <Menu className="size-5" />
-                    </button>
+            {/* Contenedor derecho */}
+            <div className="flex-1 flex flex-col min-w-0">
+                <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between gap-4">
+          <span className="inline-flex items-center px-3.5 py-1.5 rounded-lg bg-emerald-50 text-[#064c32] font-semibold text-sm tracking-wide">
+            SISTEMA INTEGRADO DE GESTIÓN DE ALMACÉN
+          </span>
 
-                    <div className="hidden sm:block">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#075c3b] bg-[#edf3f0] px-2.5 py-1 rounded-md">
-              Sistema Integrado de Gestión de Almacén
-            </span>
-                    </div>
-
-                    {/* Info de Usuario Activo */}
-                    <div className="flex items-center gap-3 ml-auto">
+                    <div className="flex items-center gap-3">
                         <div className="text-right">
-                            <p className="text-xs font-bold text-[#20372e]">
-                                {usuario?.nombreCompleto || 'Usuario Almacén'}
+                            <p className="text-base font-semibold text-slate-900 leading-tight">
+                                {usuario?.nombreCompleto || usuario?.username}
                             </p>
-                            <p className="text-[11px] font-semibold text-[#075c3b]">
-                                {usuario?.rol || 'Administrador'}
+                            <p className="text-sm text-emerald-700 font-medium">
+                                {rolActual} · {usuario?.nombreArea || 'IESTP Cañete'}
                             </p>
                         </div>
-                        <div className="flex size-9 items-center justify-center rounded-full bg-[#edf3f0] text-[#075c3b]">
-                            <User className="size-4" />
-                        </div>
+                        <UserCircle2 className="w-10 h-10 text-slate-400 shrink-0" />
                     </div>
                 </header>
 
-                {/* Área Central Dinámica */}
-                <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-                    <div className="mx-auto max-w-7xl">
-                        <Outlet />
-                    </div>
+                <main className="flex-1 p-8 overflow-y-auto">
+                    <Outlet />
                 </main>
             </div>
         </div>
-    )
+    );
 }
