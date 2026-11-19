@@ -29,4 +29,7 @@ public class Persona {
 
     @Column(name = "cargo", length = 100)
     private String cargo;
+
+    @Column(name = "activo", nullable = false)
+    private Boolean activo = true;
 }

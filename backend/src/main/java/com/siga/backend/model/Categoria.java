@@ -24,5 +24,7 @@ public class Categoria {
     @JoinColumn(name = "idpadre")
     private Categoria idpadre;
 
+    @Column(name = "activo", nullable = false)
+    private Boolean activo = true;
 
 }

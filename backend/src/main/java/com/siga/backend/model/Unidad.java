@@ -17,5 +17,10 @@ public class Unidad {
     @Column(name = "nombre", nullable = false, length = 45)
     private String nombre;
 
+    @Column(name = "abreviatura", length = 15)
+    private String abreviatura;
+
+    @Column(name = "activo", nullable = false)
+    private Boolean activo = true;
 
 }

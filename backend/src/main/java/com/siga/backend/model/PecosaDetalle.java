@@ -27,8 +27,8 @@ public class PecosaDetalle {
     @JoinColumn(name = "idproducto", nullable = false)
     private Producto idproducto;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "idlote", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idlote")
     private Lote idlote;
 
     @Column(name = "cantidad_solicitada", nullable = false, precision = 12, scale = 2)
@@ -39,6 +39,4 @@ public class PecosaDetalle {
 
     @Column(name = "precio_unitario_historico", nullable = false, precision = 12, scale = 2)
     private BigDecimal precioUnitarioHistorico;
-
-
 }

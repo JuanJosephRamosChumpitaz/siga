@@ -51,4 +51,12 @@ public class Lote {
 
     @Column(name = "documento_sustento", length = 255)
     private String documentoSustento;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idnota_entrada")
+    private NotaEntrada notaEntrada;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idproveedor")
+    private Proveedor proveedorEntidad; // usa este nombre para no chocar con tu String proveedor de la V2
 }
