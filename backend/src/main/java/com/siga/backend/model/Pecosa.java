@@ -6,6 +6,7 @@ import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -27,15 +28,30 @@ public class Pecosa {
     @Column(name = "observaciones", length = 255)
     private String observaciones;
 
+    @Column(name = "numero_pedido", length = 45)
+    private String numeroPedido;
+
+    @Column(name = "numero_salida", length = 45)
+    private String numeroSalida;
+
+    @Column(name = "estado", nullable = false, length = 30)
+    private String estado = "PENDIENTE_FIRMAS";
+
+    @Column(name = "codigo_qr", length = 100, unique = true)
+    private String codigoQr;
+
+    @Column(name = "fecha_despacho")
+    private LocalDateTime fechaDespacho;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "idpersona_solicitante", nullable = false)
     private Persona idpersonaSolicitante;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "idpersona_almacenista", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idpersona_almacenista")
     private Persona idpersonaAlmacenista;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idarea")
-    private Area idarea; // Clave foránea agregada según diagrama
+    private Area idarea;
 }

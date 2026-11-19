@@ -27,4 +27,7 @@ public class Usuario {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idrol")
     private Rol rol; // Lombok generará automáticamente getRol() y setRol()
+
+    @Column(name = "activo", nullable = false)
+    private Boolean activo = true;
 }

@@ -49,4 +49,19 @@ public class Producto {
     @ColumnDefault("0.00")
     @Column(name = "stock_minimo", nullable = false, precision = 12, scale = 2)
     private BigDecimal stockMinimo;
+
+    @Column(name = "codigo_interno", length = 50, unique = true)
+    private String codigoInterno;
+
+    @Column(name = "marca_serie", length = 150)
+    private String marcaSerie;
+
+    @Column(name = "tipo_bien", length = 50)
+    private String tipoBien;
+
+    @Column(name = "consumo_mensual_aprox", nullable = false, precision = 12, scale = 2)
+    private BigDecimal consumoMensualAprox = BigDecimal.ZERO;
+
+    @Column(name = "activo", nullable = false)
+    private Boolean activo = true;
 }
