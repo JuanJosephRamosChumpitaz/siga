@@ -67,7 +67,10 @@ export default function UsuariosPersonalView() {
     };
 
     useEffect(() => {
-        cargarTodo();
+        const iniciar = async () => {
+            await cargarTodo();
+        };
+        iniciar();
     }, []);
 
     const notificar = (texto) => {
