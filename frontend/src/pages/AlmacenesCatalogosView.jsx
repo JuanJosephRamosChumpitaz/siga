@@ -24,35 +24,23 @@ export default function AlmacenesCatalogosView() {
     const [unidadEditId, setUnidadEditId] = useState(null);
     const [unidadForm, setUnidadForm] = useState({ nombre: '', abreviatura: '' });
 
+    const cargarTodo = async () => {
+        try {
+            const [provData, uniData] = await Promise.all([
+                catalogoService.listarProveedores(),
+                catalogoService.listarUnidades(),
+            ]);
+            setProveedores(provData);
+            setUnidades(uniData);
+        } catch (err) {
+            setError(err.response?.data?.message || 'No se pudieron cargar los catálogos.');
+        } finally {
+            setCargando(false);
+        }
+    };
+
     useEffect(() => {
-        let activo = true;
-
-        const cargarTodo = async () => {
-            try {
-                const [provData, uniData] = await Promise.all([
-                    catalogoService.listarProveedores(),
-                    catalogoService.listarUnidades(),
-                ]);
-                if (activo) {
-                    setProveedores(provData);
-                    setUnidades(uniData);
-                }
-            } catch (err) {
-                if (activo) {
-                    setError(err.response?.data?.message || 'No se pudieron cargar los catálogos.');
-                }
-            } finally {
-                if (activo) {
-                    setCargando(false);
-                }
-            }
-        };
-
         cargarTodo();
-
-        return () => {
-            activo = false;
-        };
     }, []);
 
     const notificar = (texto) => {
