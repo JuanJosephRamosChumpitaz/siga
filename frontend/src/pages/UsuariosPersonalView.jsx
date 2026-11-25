@@ -12,6 +12,8 @@ import {
     EyeOff,
 } from 'lucide-react';
 import { administracionService } from '../services/administracionService';
+import { usePaginacion } from '../hooks/usepaginacion';
+import Paginacion from '../components/ui/paginacion';
 
 export default function UsuariosPersonalView() {
     const [tab, setTab] = useState('areas');
@@ -67,10 +69,7 @@ export default function UsuariosPersonalView() {
     };
 
     useEffect(() => {
-        const iniciar = async () => {
-            await cargarTodo();
-        };
-        iniciar();
+        cargarTodo();
     }, []);
 
     const notificar = (texto) => {
@@ -184,6 +183,10 @@ export default function UsuariosPersonalView() {
         (p) => p.activo && (!p.tieneUsuario || Number(usuarioForm.idPersona) === p.idPersona)
     );
 
+    const pagAreas = usePaginacion(areas, 10);
+    const pagPersonas = usePaginacion(personas, 10);
+    const pagUsuarios = usePaginacion(usuarios, 10);
+
     return (
         <div className="space-y-6">
             <div>
@@ -257,10 +260,10 @@ export default function UsuariosPersonalView() {
                 <>
                     {/* TAB 1: ÁREAS */}
                     {tab === 'areas' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                             <form
                                 onSubmit={guardarArea}
-                                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 h-fit"
+                                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 lg:sticky lg:top-0"
                             >
                                 <h3 className="text-xl font-bold text-slate-900">
                                     {areaEditId ? 'Editar Área' : 'Nueva Área'}
@@ -313,71 +316,84 @@ export default function UsuariosPersonalView() {
                                 </div>
                             </form>
 
-                            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                    <tr className="bg-[#064c32] text-white text-sm uppercase">
-                                        <th className="py-3.5 px-4">Área</th>
-                                        <th className="py-3.5 px-4">Descripción</th>
-                                        <th className="py-3.5 px-4">Estado</th>
-                                        <th className="py-3.5 px-4 text-right">Acciones</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-200 text-base">
-                                    {areas.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={4} className="py-8 text-center text-slate-500">
-                                                No hay áreas registradas todavía. Registra la primera a la izquierda.
-                                            </td>
+                            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                        <tr className="bg-[#064c32] text-white text-sm uppercase">
+                                            <th className="py-3.5 px-4">Área</th>
+                                            <th className="py-3.5 px-4">Descripción</th>
+                                            <th className="py-3.5 px-4">Estado</th>
+                                            <th className="py-3.5 px-4 text-right">Acciones</th>
                                         </tr>
-                                    ) : (
-                                        areas.map((a) => (
-                                            <tr key={a.idArea} className="hover:bg-slate-50">
-                                                <td className="py-3.5 px-4 font-semibold">{a.nombre}</td>
-                                                <td className="py-3.5 px-4 text-slate-600">{a.descripcion || '—'}</td>
-                                                <td className="py-3.5 px-4">
-                            <span
-                                className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                                    a.activo ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
-                                }`}
-                            >
-                              {a.activo ? 'Activa' : 'Inactiva'}
-                            </span>
-                                                </td>
-                                                <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setAreaEditId(a.idArea);
-                                                            setAreaForm({ nombre: a.nombre, descripcion: a.descripcion || '' });
-                                                        }}
-                                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
-                                                    >
-                                                        <Pencil className="w-4 h-4" /> Editar
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => toggleArea(a)}
-                                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
-                                                    >
-                                                        <Power className="w-4 h-4" /> {a.activo ? 'Desactivar' : 'Activar'}
-                                                    </button>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200 text-base">
+                                        {pagAreas.itemsPaginados.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={4} className="py-8 text-center text-slate-500">
+                                                    No hay áreas registradas todavía. Registra la primera a la izquierda.
                                                 </td>
                                             </tr>
-                                        ))
-                                    )}
-                                    </tbody>
-                                </table>
+                                        ) : (
+                                            pagAreas.itemsPaginados.map((a) => (
+                                                <tr key={a.idArea} className="hover:bg-slate-50">
+                                                    <td className="py-3.5 px-4 font-semibold">{a.nombre}</td>
+                                                    <td className="py-3.5 px-4 text-slate-600">{a.descripcion || '—'}</td>
+                                                    <td className="py-3.5 px-4">
+                              <span
+                                  className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                      a.activo ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                                  }`}
+                              >
+                                {a.activo ? 'Activa' : 'Inactiva'}
+                              </span>
+                                                    </td>
+                                                    <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setAreaEditId(a.idArea);
+                                                                setAreaForm({ nombre: a.nombre, descripcion: a.descripcion || '' });
+                                                            }}
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
+                                                        >
+                                                            <Pencil className="w-4 h-4" /> Editar
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleArea(a)}
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
+                                                        >
+                                                            <Power className="w-4 h-4" /> {a.activo ? 'Desactivar' : 'Activar'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <Paginacion
+                                    paginaActual={pagAreas.paginaActual}
+                                    totalPaginas={pagAreas.totalPaginas}
+                                    totalRegistros={pagAreas.totalRegistros}
+                                    porPagina={pagAreas.porPagina}
+                                    desde={pagAreas.desde}
+                                    hasta={pagAreas.hasta}
+                                    onCambiarPagina={pagAreas.irAPagina}
+                                    onCambiarPorPagina={pagAreas.cambiarPorPagina}
+                                />
                             </div>
                         </div>
                     )}
 
                     {/* TAB 2: PERSONAL */}
                     {tab === 'personas' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                             <form
                                 onSubmit={guardarPersona}
-                                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 h-fit"
+                                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 lg:sticky lg:top-0"
                             >
                                 <h3 className="text-xl font-bold text-slate-900">
                                     {personaEditId ? 'Editar Personal' : 'Registrar Personal'}
@@ -463,83 +479,96 @@ export default function UsuariosPersonalView() {
                                 </div>
                             </form>
 
-                            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                    <tr className="bg-[#064c32] text-white text-sm uppercase">
-                                        <th className="py-3.5 px-4">DNI</th>
-                                        <th className="py-3.5 px-4">Nombre Completo</th>
-                                        <th className="py-3.5 px-4">Área / Cargo</th>
-                                        <th className="py-3.5 px-4">Estado</th>
-                                        <th className="py-3.5 px-4 text-right">Acciones</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-200 text-base">
-                                    {personas.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={5} className="py-8 text-center text-slate-500">
-                                                No hay personal registrado.
-                                            </td>
+                            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                        <tr className="bg-[#064c32] text-white text-sm uppercase">
+                                            <th className="py-3.5 px-4">DNI</th>
+                                            <th className="py-3.5 px-4">Nombre Completo</th>
+                                            <th className="py-3.5 px-4">Área / Cargo</th>
+                                            <th className="py-3.5 px-4">Estado</th>
+                                            <th className="py-3.5 px-4 text-right">Acciones</th>
                                         </tr>
-                                    ) : (
-                                        personas.map((p) => (
-                                            <tr key={p.idPersona} className="hover:bg-slate-50">
-                                                <td className="py-3.5 px-4 font-mono">{p.dni}</td>
-                                                <td className="py-3.5 px-4 font-semibold">{p.nombreCompleto}</td>
-                                                <td className="py-3.5 px-4">
-                                                    <div className="font-medium">{p.nombreArea}</div>
-                                                    <div className="text-sm text-slate-500">{p.cargo || 'Sin cargo'}</div>
-                                                </td>
-                                                <td className="py-3.5 px-4">
-                            <span
-                                className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                                    p.activo ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
-                                }`}
-                            >
-                              {p.activo ? 'Activo' : 'Inactivo'}
-                            </span>
-                                                </td>
-                                                <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setPersonaEditId(p.idPersona);
-                                                            setPersonaForm({
-                                                                dni: p.dni,
-                                                                nombres: p.nombres,
-                                                                apellidos: p.apellidos,
-                                                                cargo: p.cargo || '',
-                                                                idArea: p.idArea ? String(p.idArea) : '',
-                                                            });
-                                                        }}
-                                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
-                                                    >
-                                                        <Pencil className="w-4 h-4" /> Editar
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => togglePersona(p)}
-                                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
-                                                    >
-                                                        <Power className="w-4 h-4" /> {p.activo ? 'Desactivar' : 'Activar'}
-                                                    </button>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200 text-base">
+                                        {pagPersonas.itemsPaginados.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={5} className="py-8 text-center text-slate-500">
+                                                    No hay personal registrado.
                                                 </td>
                                             </tr>
-                                        ))
-                                    )}
-                                    </tbody>
-                                </table>
+                                        ) : (
+                                            pagPersonas.itemsPaginados.map((p) => (
+                                                <tr key={p.idPersona} className="hover:bg-slate-50">
+                                                    <td className="py-3.5 px-4 font-mono">{p.dni}</td>
+                                                    <td className="py-3.5 px-4 font-semibold">{p.nombreCompleto}</td>
+                                                    <td className="py-3.5 px-4">
+                                                        <div className="font-medium">{p.nombreArea}</div>
+                                                        <div className="text-sm text-slate-500">{p.cargo || 'Sin cargo'}</div>
+                                                    </td>
+                                                    <td className="py-3.5 px-4">
+                              <span
+                                  className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                      p.activo ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                                  }`}
+                              >
+                                {p.activo ? 'Activo' : 'Inactivo'}
+                              </span>
+                                                    </td>
+                                                    <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setPersonaEditId(p.idPersona);
+                                                                setPersonaForm({
+                                                                    dni: p.dni,
+                                                                    nombres: p.nombres,
+                                                                    apellidos: p.apellidos,
+                                                                    cargo: p.cargo || '',
+                                                                    idArea: p.idArea ? String(p.idArea) : '',
+                                                                });
+                                                            }}
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
+                                                        >
+                                                            <Pencil className="w-4 h-4" /> Editar
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => togglePersona(p)}
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
+                                                        >
+                                                            <Power className="w-4 h-4" /> {p.activo ? 'Desactivar' : 'Activar'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <Paginacion
+                                    paginaActual={pagPersonas.paginaActual}
+                                    totalPaginas={pagPersonas.totalPaginas}
+                                    totalRegistros={pagPersonas.totalRegistros}
+                                    porPagina={pagPersonas.porPagina}
+                                    desde={pagPersonas.desde}
+                                    hasta={pagPersonas.hasta}
+                                    onCambiarPagina={pagPersonas.irAPagina}
+                                    onCambiarPorPagina={pagPersonas.cambiarPorPagina}
+                                />
                             </div>
                         </div>
                     )}
 
                     {/* TAB 3: USUARIOS */}
                     {tab === 'usuarios' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                             <form
                                 onSubmit={guardarUsuario}
                                 autoComplete="off"
-                                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 h-fit"
+                                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 lg:sticky lg:top-0"
                             >
                                 <h3 className="text-xl font-bold text-slate-900">
                                     {usuarioEditId ? 'Editar Usuario' : 'Crear Acceso al Sistema'}
@@ -640,68 +669,89 @@ export default function UsuariosPersonalView() {
                                 </div>
                             </form>
 
-                            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                    <tr className="bg-[#064c32] text-white text-sm uppercase">
-                                        <th className="py-3.5 px-4">Usuario</th>
-                                        <th className="py-3.5 px-4">Personal / Área</th>
-                                        <th className="py-3.5 px-4">Rol</th>
-                                        <th className="py-3.5 px-4">Estado</th>
-                                        <th className="py-3.5 px-4 text-right">Acciones</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-200 text-base">
-                                    {usuarios.map((u) => (
-                                        <tr key={u.idUsuario} className="hover:bg-slate-50">
-                                            <td className="py-3.5 px-4 font-semibold">{u.username}</td>
-                                            <td className="py-3.5 px-4">
-                                                <div>{u.nombreCompleto}</div>
-                                                <div className="text-sm text-slate-500">{u.nombreArea}</div>
-                                            </td>
-                                            <td className="py-3.5 px-4">
-                          <span className="px-3 py-1 rounded-lg bg-emerald-50 text-[#064c32] text-sm font-bold">
-                            {u.rol}
-                          </span>
-                                            </td>
-                                            <td className="py-3.5 px-4">
-                          <span
-                              className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                                  u.activo ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
-                              }`}
-                          >
-                            {u.activo ? 'Activo' : 'Inactivo'}
-                          </span>
-                                            </td>
-                                            <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setUsuarioEditId(u.idUsuario);
-                                                        setUsuarioForm({
-                                                            idPersona: u.idPersona ? String(u.idPersona) : '',
-                                                            username: u.username,
-                                                            password: '',
-                                                            idRol: u.idRol ? String(u.idRol) : '',
-                                                        });
-                                                        setMostrarPassword(false);
-                                                    }}
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
-                                                >
-                                                    <Pencil className="w-4 h-4" /> Editar
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => toggleUsuario(u)}
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
-                                                >
-                                                    <Power className="w-4 h-4" /> {u.activo ? 'Desactivar' : 'Activar'}
-                                                </button>
-                                            </td>
+                            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                        <tr className="bg-[#064c32] text-white text-sm uppercase">
+                                            <th className="py-3.5 px-4">Usuario</th>
+                                            <th className="py-3.5 px-4">Personal / Área</th>
+                                            <th className="py-3.5 px-4">Rol</th>
+                                            <th className="py-3.5 px-4">Estado</th>
+                                            <th className="py-3.5 px-4 text-right">Acciones</th>
                                         </tr>
-                                    ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200 text-base">
+                                        {pagUsuarios.itemsPaginados.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={5} className="py-8 text-center text-slate-500">
+                                                    No hay usuarios registrados.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            pagUsuarios.itemsPaginados.map((u) => (
+                                                <tr key={u.idUsuario} className="hover:bg-slate-50">
+                                                    <td className="py-3.5 px-4 font-semibold">{u.username}</td>
+                                                    <td className="py-3.5 px-4">
+                                                        <div>{u.nombreCompleto}</div>
+                                                        <div className="text-sm text-slate-500">{u.nombreArea}</div>
+                                                    </td>
+                                                    <td className="py-3.5 px-4">
+                              <span className="px-3 py-1 rounded-lg bg-emerald-50 text-[#064c32] text-sm font-bold">
+                                {u.rol}
+                              </span>
+                                                    </td>
+                                                    <td className="py-3.5 px-4">
+                              <span
+                                  className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                      u.activo ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                                  }`}
+                              >
+                                {u.activo ? 'Activo' : 'Inactivo'}
+                              </span>
+                                                    </td>
+                                                    <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setUsuarioEditId(u.idUsuario);
+                                                                setUsuarioForm({
+                                                                    idPersona: u.idPersona ? String(u.idPersona) : '',
+                                                                    username: u.username,
+                                                                    password: '',
+                                                                    idRol: u.idRol ? String(u.idRol) : '',
+                                                                });
+                                                                setMostrarPassword(false);
+                                                            }}
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
+                                                        >
+                                                            <Pencil className="w-4 h-4" /> Editar
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleUsuario(u)}
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
+                                                        >
+                                                            <Power className="w-4 h-4" /> {u.activo ? 'Desactivar' : 'Activar'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <Paginacion
+                                    paginaActual={pagUsuarios.paginaActual}
+                                    totalPaginas={pagUsuarios.totalPaginas}
+                                    totalRegistros={pagUsuarios.totalRegistros}
+                                    porPagina={pagUsuarios.porPagina}
+                                    desde={pagUsuarios.desde}
+                                    hasta={pagUsuarios.hasta}
+                                    onCambiarPagina={pagUsuarios.irAPagina}
+                                    onCambiarPorPagina={pagUsuarios.cambiarPorPagina}
+                                />
                             </div>
                         </div>
                     )}

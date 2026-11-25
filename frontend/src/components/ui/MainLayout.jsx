@@ -116,9 +116,9 @@ export default function MainLayout() {
     };
 
     return (
-        <div className="min-h-screen flex bg-slate-50 text-slate-900">
+        <div className="h-screen overflow-hidden flex bg-slate-50 text-slate-900">
             {/* Barra lateral institucional */}
-            <aside className="w-72 shrink-0 bg-[#064c32] text-white flex flex-col justify-between shadow-lg">
+            <aside className="w-72 shrink-0 bg-[#064c32] text-white flex flex-col justify-between shadow-lg overflow-y-auto">
                 <div>
                     <div className="px-6 py-5 border-b border-emerald-800/70 flex items-center gap-3">
                         <div className="h-11 w-11 rounded-full bg-lime-400 text-[#064c32] font-bold text-lg flex items-center justify-center shrink-0">

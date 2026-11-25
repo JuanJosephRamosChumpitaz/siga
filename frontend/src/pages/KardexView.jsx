@@ -1,653 +1,511 @@
+import { useEffect, useState } from 'react';
+import { Printer, Download, ClipboardList, FileSpreadsheet, AlertCircle } from 'lucide-react';
+import { catalogoService } from '../services/catalogoService';
+import { reporteService } from '../services/reporteService';
+import { usePaginacion } from '../hooks/usepaginacion';
+import Paginacion from '../components/ui/paginacion';
 
-import React, { useState, useMemo } from 'react';
-import {
-  ArrowDown,
-  ArrowUp,
-  Boxes,
-  CalendarDays,
-  Download,
-  Package,
-  Plus,
-  Printer,
-  X,
-} from 'lucide-react';
+function formatearFecha(iso) {
+  if (!iso) return '—';
+  const f = new Date(iso);
+  if (Number.isNaN(f.getTime())) return iso;
+  return f.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
 
-import { InventoryService } from '../services/inventoryService';
+export default function KardexView() {
+  const [productos, setProductos] = useState([]);
+  const [idProducto, setIdProducto] = useState('');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [modoVista, setModoVista] = useState('valorado'); // 'valorado' | 'control_visible'
 
-export function KardexView({
-                             state,
-                             selectedProductId,
-                             onOpenNewMovement,
-                             onPrintKardex,
-                           }) {
-  const {
-    products = [],
-    warehouses = [],
-    accounts = [],
-    movements = [],
-  } = state;
+  const [kardex, setKardex] = useState(null);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState('');
 
-  const [productId, setProductId] = useState(
-      selectedProductId || products[0]?.id || ''
-  );
+  useEffect(() => {
+    catalogoService
+        .listarProductos(false)
+        .then((data) => setProductos(data))
+        .catch(() => setError('No se pudo cargar la lista de bienes.'));
+  }, []);
 
-  const [warehouseId, setWarehouseId] = useState(
-      warehouses[0]?.id || 'alm-1'
-  );
-
-  const [startDate, setStartDate] = useState('2026-08-01');
-  const [endDate, setEndDate] = useState('2026-10-31');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [notification, setNotification] = useState(null);
-
-  // Producto seleccionado
-  const product = useMemo(() => {
-    return products.find((p) => p.id === productId) || products[0];
-  }, [products, productId]);
-
-  // Nombre del almacén
-  const warehouse = useMemo(() => {
-    return (
-        warehouses.find((w) => w.id === warehouseId) || warehouses[0]
-    );
-  }, [warehouses, warehouseId]);
-
-  // Ruta contable del producto
-  const accountPath = useMemo(() => {
-    if (!product) return '';
-
-    return InventoryService.getAccountPath(
-        product.accountId,
-        accounts
-    );
-  }, [product, accounts]);
-
-  // Calcular Kardex con promedio ponderado móvil
-  const kardexData = useMemo(() => {
-    if (!product) return null;
-
-    return InventoryService.calculateKardex(
-        product.id,
-        warehouseId,
-        movements,
-        startDate,
-        endDate
-    );
-  }, [product, warehouseId, movements, startDate, endDate]);
-
-  // Filtrar movimientos
-  const filteredRows = useMemo(() => {
-    if (!kardexData) return [];
-
-    if (typeFilter === 'all') {
-      return kardexData.rows;
+  useEffect(() => {
+    if (!idProducto) {
+      setKardex(null);
+      return;
     }
+    setCargando(true);
+    setError('');
+    reporteService
+        .consultarKardex(idProducto, desde, hasta)
+        .then((data) => setKardex(data))
+        .catch((err) => setError(err.response?.data?.message || 'No se pudo consultar el Kardex.'))
+        .finally(() => setCargando(false));
+  }, [idProducto, desde, hasta]);
 
-    return kardexData.rows.filter((row) => row.type === typeFilter);
-  }, [kardexData, typeFilter]);
+  const pag = usePaginacion(kardex?.movimientos || [], 15);
 
-  // Exportar Kardex a CSV
-  const handleExportCSV = () => {
-    if (!kardexData || !product) return;
-
-    const headers = [
+  const exportarCsv = () => {
+    if (!kardex) return;
+    const encabezados = [
       'Fecha',
-      'Hora',
-      'Correlativo',
       'Documento',
-      'Tipo_Operacion',
-      'Motivo',
-      'Origen_Destino',
-      'Entradas_Cant',
-      'Entradas_CostoUnit',
-      'Entradas_Total',
-      'Salidas_Cant',
-      'Salidas_CostoUnit',
-      'Salidas_Total',
-      'Saldo_Cant',
-      'Saldo_CostoProm',
-      'Saldo_Total',
-      'Usuario',
+      'Tipo',
+      'Area/Proveedor',
+      'Solicitante',
+      'Cant. Entrada',
+      'Cant. Salida',
+      'Saldo Cant.',
+      'Costo Unit.',
+      'Imp. Entrada',
+      'Imp. Salida',
+      'Saldo Valorizado (PEPS)',
+      'Observacion',
     ];
-
-    const escapeCSV = (value) => {
-      const text = String(value ?? '');
-      return `"${text.replace(/"/g, '""')}"`;
-    };
-
-    const rows = filteredRows.map((r) => [
-      escapeCSV(r.date),
-      escapeCSV(r.time),
-      escapeCSV(r.correlative),
-      escapeCSV(`${r.docType} ${r.docNumber}`),
-      escapeCSV(r.type),
-      escapeCSV(r.reason),
-      escapeCSV(r.originOrDestination),
-      r.entryQty || '',
-      r.entryCost ? r.entryCost.toFixed(2) : '',
-      r.entryTotal ? r.entryTotal.toFixed(2) : '',
-      r.exitQty || '',
-      r.exitCost ? r.exitCost.toFixed(2) : '',
-      r.exitTotal ? r.exitTotal.toFixed(2) : '',
-      r.balanceQty,
-      r.balanceCost.toFixed(2),
-      r.balanceTotal.toFixed(2),
-      escapeCSV(r.user),
+    const filas = kardex.movimientos.map((m) => [
+      formatearFecha(m.fecha),
+      m.documentoReferencia,
+      m.tipoMovimiento,
+      m.areaNombre || m.proveedorNombre || '',
+      m.solicitanteNombre || '',
+      Number(m.cantidadEntrada).toFixed(2),
+      Number(m.cantidadSalida).toFixed(2),
+      Number(m.saldoCantidad).toFixed(2),
+      Number(m.costoUnitario).toFixed(2),
+      Number(m.importeEntrada).toFixed(2),
+      Number(m.importeSalida).toFixed(2),
+      Number(m.saldoValorizado).toFixed(2),
+      (m.observacion || '').replaceAll(',', ';'),
     ]);
-
-    const csvContent =
-        '\uFEFF' +
-        [
-          '"KARDEX FISICO VALORIZADO - METODO PROMEDIO PONDERADO MOVIL"',
-          escapeCSV(`Producto: ${product.code} - ${product.name}`),
-          escapeCSV(`Almacen: ${warehouse?.name || ''}`),
-          escapeCSV(`Periodo: ${startDate} al ${endDate}`),
-          headers.join(','),
-          ...rows.map((row) => row.join(',')),
-        ].join('\n');
-
-    const blob = new Blob([csvContent], {
-      type: 'text/csv;charset=utf-8;',
-    });
-
+    const csv = [encabezados.join(','), ...filas.map((r) => r.join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-
-    link.setAttribute('href', url);
-    link.setAttribute(
-        'download',
-        `kardex_${product.code}_${warehouse?.code || 'almacen'}.csv`
-    );
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kardex_${kardex.codigoInterno || kardex.idProducto}.csv`;
+    a.click();
     URL.revokeObjectURL(url);
+  };
 
-    setNotification('Ficha Kardex exportada en CSV.');
-    setTimeout(() => setNotification(null), 3000);
+  // Impresión formato "EXISTENCIAS VALORADAS DE ALMACÉN" (ficha oficial IESTP Cañete)
+  const imprimirExistenciasValoradas = () => {
+    if (!kardex) return;
+    const filas = kardex.movimientos
+        .map(
+            (m) => `
+        <tr>
+          <td style="text-align:center;">${formatearFecha(m.fecha)}</td>
+          <td>${m.areaNombre || m.documentoReferencia}</td>
+          <td>${m.proveedorNombre || (m.tipoMovimiento === 'ENTRADA' ? m.documentoReferencia : '—')}</td>
+          <td style="text-align:right;">${Number(m.cantidadEntrada) > 0 ? Number(m.cantidadEntrada).toFixed(2) : ''}</td>
+          <td style="text-align:right;">${Number(m.cantidadSalida) > 0 ? Number(m.cantidadSalida).toFixed(2) : ''}</td>
+          <td style="text-align:right; font-weight:bold;">${Number(m.saldoCantidad).toFixed(2)}</td>
+          <td>${m.solicitanteNombre || '—'}</td>
+          <td style="text-align:right;">${Number(m.costoUnitario).toFixed(2)}</td>
+          <td style="text-align:right;">${Number(m.importeEntrada) > 0 ? Number(m.importeEntrada).toFixed(2) : ''}</td>
+          <td style="text-align:right;">${Number(m.importeSalida) > 0 ? Number(m.importeSalida).toFixed(2) : ''}</td>
+          <td style="text-align:right; font-weight:bold;">${Number(m.saldoValorizado).toFixed(2)}</td>
+        </tr>
+      `
+        )
+        .join('');
+
+    const ventana = window.open('', '_blank', 'width=1060,height=740');
+    if (!ventana) return;
+    ventana.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Existencias Valoradas - ${kardex.nombreProducto}</title>
+          <style>
+            @page { size: landscape; margin: 12mm; }
+            body { font-family: Arial, sans-serif; color: #111; font-size: 12px; }
+            h2 { text-align: center; margin: 0 0 12px; font-size: 16px; letter-spacing: 0.5px; }
+            .cab { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+            .cab td { padding: 4px 6px; }
+            .tabla { width: 100%; border-collapse: collapse; font-size: 11px; }
+            .tabla th, .tabla td { border: 1px solid #222; padding: 5px; }
+            .tabla th { background: #e8f5ee; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <h2>EXISTENCIAS VALORADAS DE ALMACÉN (MÉTODO PEPS) — IESTP CAÑETE</h2>
+          <table class="cab">
+            <tr>
+              <td><strong>ARTÍCULO:</strong> ${kardex.nombreProducto} (${kardex.codigoInterno || ''})</td>
+              <td><strong>MARCA Y SERIE:</strong> ${kardex.marcaSerie || '—'}</td>
+              <td><strong>CUENTA CONTABLE:</strong> ${kardex.codigoCuenta || '—'}</td>
+            </tr>
+            <tr>
+              <td><strong>UNIDAD DE MEDIDA:</strong> ${kardex.unidadMedida}</td>
+              <td><strong>CONSUMO MENS. APROX.:</strong> ${Number(kardex.consumoMensualAprox || 0).toFixed(2)}</td>
+              <td><strong>SALDO ACTUAL:</strong> ${Number(kardex.stockActual).toFixed(2)} (S/ ${Number(kardex.valorizadoActual).toFixed(2)})</td>
+            </tr>
+          </table>
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th rowspan="2">FECHA</th>
+                <th colspan="2">COMPROBANTE</th>
+                <th colspan="3">CANTIDAD</th>
+                <th rowspan="2">SOLICITANTE</th>
+                <th rowspan="2">COSTO UNIT.</th>
+                <th colspan="3">IMPORTE (S/)</th>
+              </tr>
+              <tr>
+                <th>ÁREA / DOC.</th>
+                <th>PROVEEDOR</th>
+                <th>ENTRADA</th>
+                <th>SALIDA</th>
+                <th>SALDO</th>
+                <th>ENTRADA</th>
+                <th>SALIDA</th>
+                <th>SALDO</th>
+              </tr>
+            </thead>
+            <tbody>${filas}</tbody>
+          </table>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    ventana.document.close();
+  };
+
+  // Impresión formato "CONTROL VISIBLE" (tarjeta diaria sin precios para estante)
+  const imprimirControlVisible = () => {
+    if (!kardex) return;
+    const filas = kardex.movimientos
+        .map(
+            (m) => `
+        <tr>
+          <td style="text-align:center;">${formatearFecha(m.fecha)}</td>
+          <td style="text-align:right;">${Number(m.cantidadEntrada) > 0 ? Number(m.cantidadEntrada).toFixed(2) : ''}</td>
+          <td style="text-align:right;">${Number(m.cantidadSalida) > 0 ? Number(m.cantidadSalida).toFixed(2) : ''}</td>
+          <td>${m.areaNombre || m.observacion || m.documentoReferencia}</td>
+          <td style="text-align:right; font-weight:bold;">${Number(m.saldoCantidad).toFixed(2)}</td>
+        </tr>
+      `
+        )
+        .join('');
+
+    const ventana = window.open('', '_blank', 'width=640,height=780');
+    if (!ventana) return;
+    ventana.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Control Visible - ${kardex.nombreProducto}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #111; }
+            .card { border: 2px solid #111; padding: 14px; }
+            h2 { text-align: center; margin: 0 0 8px; font-size: 18px; }
+            .prod { font-size: 14px; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #111; padding-bottom: 6px; }
+            table { width: 100%; border-collapse: collapse; font-size: 13px; }
+            th, td { border: 1px solid #111; padding: 6px; }
+            th { background: #f2f2f2; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h2>CONTROL VISIBLE</h2>
+            <div class="prod">PRODUCTO: ${kardex.nombreProducto} (${kardex.unidadMedida})</div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:95px;">FECHA</th>
+                  <th style="width:80px;">ENTRADA</th>
+                  <th style="width:80px;">SALIDA</th>
+                  <th>OBSERVACIÓN</th>
+                  <th style="width:80px;">SALDO</th>
+                </tr>
+              </thead>
+              <tbody>${filas}</tbody>
+            </table>
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    ventana.document.close();
   };
 
   return (
       <div className="space-y-6">
-        {/* Toast Notification */}
-        {notification && (
-            <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl bg-[#064c32] px-5 py-3.5 text-white shadow-xl transition-all">
-              <div className="size-2 rounded-full bg-[#f5db38] animate-ping" />
-
-              <p className="text-sm font-medium">{notification}</p>
-
-              <button
-                  onClick={() => setNotification(null)}
-                  className="ml-2 text-white/70 hover:text-white"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-        )}
-
-        {/* Header */}
-        <div className="mb-6 flex flex-col justify-between gap-5 md:flex-row md:items-center">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-[#064c32] md:text-[39px]">
-              Kardex de producto
-            </h1>
-
-            <p className="mt-1 text-base text-[#687871] md:text-lg">
-              Consulta de entradas, salidas y existencias con método
-              promedio ponderado móvil.
+            <h2 className="text-3xl font-bold text-[#064c32]">Kardex Valorizado (PEPS) y Control Visible</h2>
+            <p className="text-base text-slate-600 mt-1">
+              Trazabilidad histórica de entradas, salidas por lote PEPS, ajustes de inventario y tarjeta diaria de estante.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <button
-                onClick={onOpenNewMovement}
-                className="flex items-center gap-2 rounded-xl bg-[#075c3b] px-5 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#064c32]"
-            >
-              <Plus className="size-5" />
-              Nuevo movimiento
-            </button>
+          {kardex && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    onClick={imprimirExistenciasValoradas}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#064c32] hover:bg-[#053b27] text-white text-base font-semibold cursor-pointer"
+                >
+                  <Printer className="w-5 h-5" /> Existencias Valoradas
+                </button>
+                <button
+                    type="button"
+                    onClick={imprimirControlVisible}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-[#064c32] text-[#064c32] hover:bg-emerald-50 text-base font-semibold cursor-pointer"
+                >
+                  <ClipboardList className="w-5 h-5" /> Control Visible
+                </button>
+                <button
+                    type="button"
+                    onClick={exportarCsv}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-base font-medium cursor-pointer"
+                >
+                  <Download className="w-5 h-5" /> CSV
+                </button>
+              </div>
+          )}
+        </div>
 
-            <button
-                onClick={() =>
-                    product &&
-                    onPrintKardex(
-                        product,
-                        warehouse?.name || '',
-                        kardexData
-                    )
-                }
-                disabled={!product || !kardexData}
-                className="flex items-center gap-2 rounded-xl border border-[#075c3b] bg-white px-5 py-3.5 text-sm font-bold text-[#075c3b] hover:bg-[#edf3f0] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Printer className="size-5" />
-              Imprimir Ficha
-            </button>
+        {error && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-base">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <span>{error}</span>
+            </div>
+        )}
 
-            <button
-                onClick={handleExportCSV}
-                disabled={!product || !kardexData}
-                className="hidden items-center gap-2 rounded-xl border border-[#075c3b] bg-white px-5 py-3.5 text-sm font-bold text-[#075c3b] hover:bg-[#edf3f0] disabled:cursor-not-allowed disabled:opacity-50 md:flex"
+        {/* Filtros */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <div className="md:col-span-2">
+            <label className="block text-base font-medium text-slate-700 mb-1">Producto / Bien *</label>
+            <select
+                value={idProducto}
+                onChange={(e) => {
+                  setIdProducto(e.target.value);
+                  pag.reiniciarPagina();
+                }}
+                className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-base"
             >
-              <Download className="size-5" />
-              Exportar CSV
-            </button>
+              <option value="">Selecciona un bien para consultar su Kardex...</option>
+              {productos.map((p) => (
+                  <option key={p.idProducto} value={p.idProducto}>
+                    {p.codigoInterno} — {p.nombre} ({p.nombreUnidad})
+                  </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-base font-medium text-slate-700 mb-1">Fecha desde</label>
+            <input
+                type="date"
+                value={desde}
+                onChange={(e) => {
+                  setDesde(e.target.value);
+                  pag.reiniciarPagina();
+                }}
+                className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base"
+            />
+          </div>
+          <div>
+            <label className="block text-base font-medium text-slate-700 mb-1">Fecha hasta</label>
+            <input
+                type="date"
+                value={hasta}
+                onChange={(e) => {
+                  setHasta(e.target.value);
+                  pag.reiniciarPagina();
+                }}
+                className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base"
+            />
           </div>
         </div>
 
-        {/* Filtros de Producto, Almacén y Fechas */}
-        <div className="mb-5 grid gap-4 rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)] md:grid-cols-2 xl:grid-cols-[1.45fr_1.1fr_1fr_1fr]">
-          {/* Selector de Producto */}
-          <label className="flex flex-col gap-2 text-sm font-bold text-[#52635c]">
-            Producto
+        {/* Selector de formato */}
+        {kardex && (
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex gap-2">
+                <button
+                    type="button"
+                    onClick={() => setModoVista('valorado')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-semibold cursor-pointer ${
+                        modoVista === 'valorado'
+                            ? 'bg-[#064c32] text-white'
+                            : 'bg-white border border-slate-300 text-slate-700'
+                    }`}
+                >
+                  <FileSpreadsheet className="w-5 h-5" /> Existencias Valoradas (PEPS)
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setModoVista('control_visible')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-semibold cursor-pointer ${
+                        modoVista === 'control_visible'
+                            ? 'bg-[#064c32] text-white'
+                            : 'bg-white border border-slate-300 text-slate-700'
+                    }`}
+                >
+                  <ClipboardList className="w-5 h-5" /> Tarjeta Control Visible
+                </button>
+              </div>
 
-            <select
-                value={productId}
-                onChange={(e) => setProductId(e.target.value)}
-                className="h-12 rounded-xl border border-[#d8e1dd] bg-white px-4 text-sm font-normal text-[#20372e] outline-none focus:border-[#0b7549]"
-            >
-              {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code} — {p.name}
-                  </option>
-              ))}
-            </select>
-          </label>
-
-          {/* Almacén */}
-          <label className="flex flex-col gap-2 text-sm font-bold text-[#52635c]">
-            Almacén
-
-            <select
-                value={warehouseId}
-                onChange={(e) => setWarehouseId(e.target.value)}
-                className="h-12 rounded-xl border border-[#d8e1dd] bg-white px-4 text-sm font-normal text-[#20372e] outline-none focus:border-[#0b7549]"
-            >
-              {warehouses.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-              ))}
-            </select>
-          </label>
-
-          {/* Fecha Desde */}
-          <label className="flex flex-col gap-2 text-sm font-bold text-[#52635c]">
-            Fecha desde
-
-            <div className="relative">
-              <CalendarDays className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#64756d]" />
-
-              <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="h-12 w-full rounded-xl border border-[#d8e1dd] bg-white pl-11 pr-3 text-sm text-[#20372e] outline-none focus:border-[#0b7549]"
-              />
+              <div className="bg-emerald-50 border border-emerald-200 px-5 py-2.5 rounded-xl text-base">
+                <span className="text-slate-700">Saldo Actual: </span>
+                <strong className="text-[#064c32]">
+                  {Number(kardex.stockActual).toFixed(2)} {kardex.unidadMedida}
+                </strong>
+                <span className="mx-2 text-slate-400">|</span>
+                <span className="text-slate-700">Valor PEPS: </span>
+                <strong className="text-[#064c32]">S/ {Number(kardex.valorizadoActual).toFixed(2)}</strong>
+              </div>
             </div>
-          </label>
+        )}
 
-          {/* Fecha Hasta */}
-          <label className="flex flex-col gap-2 text-sm font-bold text-[#52635c]">
-            Fecha hasta
+        {/* Tabla principal */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          {!idProducto ? (
+              <div className="p-12 text-center text-lg text-slate-500">
+                Selecciona un producto en la parte superior para visualizar su Kardex PEPS o su Control Visible.
+              </div>
+          ) : cargando ? (
+              <div className="p-12 text-center text-lg text-slate-500">Consultando movimientos...</div>
+          ) : kardex && modoVista === 'valorado' ? (
+              <>
+                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-wrap gap-6 text-sm text-slate-700">
+                  <span><strong>Cuenta Contable:</strong> {kardex.codigoCuenta || '—'} ({kardex.nombreCuenta})</span>
+                  <span><strong>Marca y Serie:</strong> {kardex.marcaSerie || '—'}</span>
+                  <span><strong>Consumo Mensual Aprox.:</strong> {Number(kardex.consumoMensualAprox || 0).toFixed(2)}</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                    <tr className="bg-[#064c32] text-white text-xs uppercase">
+                      <th className="py-3 px-3">Fecha</th>
+                      <th className="py-3 px-3">Doc. / Tipo</th>
+                      <th className="py-3 px-3">Área / Proveedor</th>
+                      <th className="py-3 px-3">Solicitante</th>
+                      <th className="py-3 px-3 text-right">Entr. Cant.</th>
+                      <th className="py-3 px-3 text-right">Sal. Cant.</th>
+                      <th className="py-3 px-3 text-right">Saldo Cant.</th>
+                      <th className="py-3 px-3 text-right">Costo Unit.</th>
+                      <th className="py-3 px-3 text-right">Entr. (S/)</th>
+                      <th className="py-3 px-3 text-right">Sal. (S/)</th>
+                      <th className="py-3 px-3 text-right">Saldo Val. (S/)</th>
+                    </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 text-base">
+                    {pag.itemsPaginados.length === 0 ? (
+                        <tr>
+                          <td colSpan={11} className="py-8 text-center text-slate-500">
+                            Este bien aún no registra movimientos en el rango seleccionado.
+                          </td>
+                        </tr>
+                    ) : (
+                        pag.itemsPaginados.map((m) => (
+                            <tr key={m.idMovimiento} className="hover:bg-slate-50">
+                              <td className="py-3 px-3 whitespace-nowrap">{formatearFecha(m.fecha)}</td>
+                              <td className="py-3 px-3 whitespace-nowrap">
+                                <div className="font-mono font-bold text-[#064c32]">{m.documentoReferencia}</div>
+                                <div className="text-xs text-slate-500">
+                                  {m.tipoMovimiento} {m.idLote ? `· Lote #${m.idLote}` : ''}
+                                </div>
+                              </td>
+                              <td className="py-3 px-3">{m.areaNombre || m.proveedorNombre || m.observacion || '—'}</td>
+                              <td className="py-3 px-3">{m.solicitanteNombre || '—'}</td>
+                              <td className="py-3 px-3 text-right text-emerald-700 font-semibold">
+                                {Number(m.cantidadEntrada) > 0 ? Number(m.cantidadEntrada).toFixed(2) : '—'}
+                              </td>
+                              <td className="py-3 px-3 text-right text-red-700 font-semibold">
+                                {Number(m.cantidadSalida) > 0 ? Number(m.cantidadSalida).toFixed(2) : '—'}
+                              </td>
+                              <td className="py-3 px-3 text-right font-bold">{Number(m.saldoCantidad).toFixed(2)}</td>
+                              <td className="py-3 px-3 text-right">S/ {Number(m.costoUnitario).toFixed(2)}</td>
+                              <td className="py-3 px-3 text-right text-emerald-700">
+                                {Number(m.importeEntrada) > 0 ? Number(m.importeEntrada).toFixed(2) : '—'}
+                              </td>
+                              <td className="py-3 px-3 text-right text-red-700">
+                                {Number(m.importeSalida) > 0 ? Number(m.importeSalida).toFixed(2) : '—'}
+                              </td>
+                              <td className="py-3 px-3 text-right font-bold text-[#064c32]">
+                                S/ {Number(m.saldoValorizado).toFixed(2)}
+                              </td>
+                            </tr>
+                        ))
+                    )}
+                    </tbody>
+                  </table>
+                </div>
 
-            <div className="relative">
-              <CalendarDays className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#64756d]" />
-
-              <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="h-12 w-full rounded-xl border border-[#d8e1dd] bg-white pl-11 pr-3 text-sm text-[#20372e] outline-none focus:border-[#0b7549]"
-              />
-            </div>
-          </label>
-        </div>
-
-        {/* Ficha Resumen del Producto */}
-        {product && (
-            <div className="mb-5 flex flex-col gap-5 rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)] md:flex-row md:items-center md:p-6">
-              <div className="flex size-[86px] shrink-0 items-center justify-center rounded-2xl bg-[#edf3f0]">
-                <Boxes
-                    className="size-12 text-[#163d2e]"
-                    strokeWidth={1.4}
+                <Paginacion
+                    paginaActual={pag.paginaActual}
+                    totalPaginas={pag.totalPaginas}
+                    totalRegistros={pag.totalRegistros}
+                    porPagina={pag.porPagina}
+                    desde={pag.desde}
+                    hasta={pag.hasta}
+                    onCambiarPagina={pag.irAPagina}
+                    onCambiarPorPagina={pag.cambiarPorPagina}
                 />
-              </div>
+              </>
+          ) : (
+              kardex && (
+                  /* Modo Control Visible (sin precios) */
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                        <tr className="bg-[#064c32] text-white text-sm uppercase">
+                          <th className="py-3.5 px-4">Fecha</th>
+                          <th className="py-3.5 px-4 text-right">Entrada</th>
+                          <th className="py-3.5 px-4 text-right">Salida</th>
+                          <th className="py-3.5 px-4">Observación / Área</th>
+                          <th className="py-3.5 px-4 text-right">Saldo</th>
+                        </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 text-base">
+                        {pag.itemsPaginados.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="py-8 text-center text-slate-500">
+                                Sin movimientos registrados.
+                              </td>
+                            </tr>
+                        ) : (
+                            pag.itemsPaginados.map((m) => (
+                                <tr key={m.idMovimiento} className="hover:bg-slate-50">
+                                  <td className="py-3.5 px-4 whitespace-nowrap">{formatearFecha(m.fecha)}</td>
+                                  <td className="py-3.5 px-4 text-right text-emerald-700 font-bold">
+                                    {Number(m.cantidadEntrada) > 0 ? Number(m.cantidadEntrada).toFixed(2) : '—'}
+                                  </td>
+                                  <td className="py-3.5 px-4 text-right text-red-700 font-bold">
+                                    {Number(m.cantidadSalida) > 0 ? Number(m.cantidadSalida).toFixed(2) : '—'}
+                                  </td>
+                                  <td className="py-3.5 px-4">
+                                    {m.areaNombre || m.observacion || m.documentoReferencia}
+                                  </td>
+                                  <td className="py-3.5 px-4 text-right font-bold text-[#064c32]">
+                                    {Number(m.saldoCantidad).toFixed(2)}
+                                  </td>
+                                </tr>
+                            ))
+                        )}
+                        </tbody>
+                      </table>
+                    </div>
 
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold text-[#075c3b]">
-                  {product.name}
-                </h2>
-
-                <div className="mt-2 flex flex-wrap gap-x-9 gap-y-2 text-[15px] text-[#627069]">
-              <span>
-                Código:{' '}
-                <strong className="font-medium text-[#20372e]">
-                  {product.code}
-                </strong>
-              </span>
-
-                  <span className="hidden h-6 w-px bg-[#d8e1dd] sm:block" />
-
-                  <span>
-                Unidad:{' '}
-                    <strong className="font-medium text-[#20372e]">
-                  {product.unit}
-                </strong>
-              </span>
-
-                  <span className="hidden h-6 w-px bg-[#d8e1dd] sm:block" />
-
-                  <span>
-                Categoría:{' '}
-                    <strong className="font-medium text-[#20372e]">
-                  {accountPath}
-                </strong>
-              </span>
-
-                  <span className="hidden h-6 w-px bg-[#d8e1dd] sm:block" />
-
-                  <span>
-                Stock Mínimo:{' '}
-                    <strong className="font-medium text-[#20372e]">
-                  {product.minStock}
-                </strong>
-              </span>
-                </div>
-              </div>
-            </div>
-        )}
-
-        {/* Tarjetas de Saldos */}
-        {kardexData && (
-            <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {/* Saldo Inicial */}
-              <div className="flex items-center gap-4 rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)]">
-                <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[#f0f1f0] text-[#69736f]">
-                  <Boxes className="size-7" />
-                </div>
-
-                <div>
-                  <p className="text-sm text-[#65736c]">Saldo inicial</p>
-
-                  <p className="mt-1 text-3xl font-bold text-[#18221e]">
-                    {kardexData.initialBalance.qty.toLocaleString('es-PE')}
-                  </p>
-
-                  <p className="text-xs text-[#65736c]">
-                    S/ {kardexData.initialBalance.total.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Entradas */}
-              <div className="flex items-center gap-4 rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)]">
-                <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[#dff1e4] text-[#08783f]">
-                  <ArrowUp className="size-7" />
-                </div>
-
-                <div>
-                  <p className="text-sm text-[#65736c]">Entradas</p>
-
-                  <p className="mt-1 text-3xl font-bold text-[#08783f]">
-                    +{kardexData.periodEntries.qty.toLocaleString('es-PE')}
-                  </p>
-
-                  <p className="text-xs text-[#08783f]">
-                    S/ {kardexData.periodEntries.total.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Salidas */}
-              <div className="flex items-center gap-4 rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)]">
-                <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[#ffe4e5] text-[#dc252d]">
-                  <ArrowDown className="size-7" />
-                </div>
-
-                <div>
-                  <p className="text-sm text-[#65736c]">Salidas</p>
-
-                  <p className="mt-1 text-3xl font-bold text-[#dc252d]">
-                    -{kardexData.periodExits.qty.toLocaleString('es-PE')}
-                  </p>
-
-                  <p className="text-xs text-[#dc252d]">
-                    S/ {kardexData.periodExits.total.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Saldo Actual */}
-              <div className="flex items-center gap-4 rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)]">
-                <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[#fff0a8] text-[#17251d]">
-                  <Package className="size-7" />
-                </div>
-
-                <div>
-                  <p className="text-sm text-[#65736c]">Saldo actual</p>
-
-                  <p className="mt-1 text-3xl font-bold text-[#17251d]">
-                    {kardexData.finalBalance.qty.toLocaleString('es-PE')}
-                  </p>
-
-                  <p className="text-xs text-[#17251d]">
-                    S/ {kardexData.finalBalance.total.toFixed(2)} (Valuación)
-                  </p>
-                </div>
-              </div>
-            </div>
-        )}
-
-        {/* Tabla Oficial de Kardex */}
-        <div className="overflow-hidden rounded-2xl border border-[#e0e8e4] bg-white shadow-[0_2px_10px_rgba(21,55,42,0.03)]">
-          <div className="flex items-center justify-between gap-3 border-b border-[#e5ebe8] p-4 md:p-5">
-            <div>
-              <h2 className="font-bold text-[#20372e]">
-                Detalle de movimientos de Kardex
-              </h2>
-
-              <p className="text-sm text-[#78847f]">
-                Registros valorizados por método promedio ponderado móvil
-              </p>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs min-w-[980px]">
-              {/* Cabecera Agrupada */}
-              <thead className="bg-[#064c32] text-white font-bold text-center border-b border-white/10">
-              <tr>
-                <th
-                    colSpan={4}
-                    className="py-2.5 px-3 border-r border-white/10 bg-[#064c32]"
-                >
-                  DOCUMENTO Y OPERACIÓN
-                </th>
-
-                <th
-                    colSpan={3}
-                    className="py-2.5 px-3 border-r border-white/10 bg-[#075c3b]"
-                >
-                  ENTRADAS
-                </th>
-
-                <th
-                    colSpan={3}
-                    className="py-2.5 px-3 border-r border-white/10 bg-[#05432c]"
-                >
-                  SALIDAS
-                </th>
-
-                <th
-                    colSpan={3}
-                    className="py-2.5 px-3 bg-[#032e1e]"
-                >
-                  SALDO (EXISTENCIAS)
-                </th>
-              </tr>
-
-              <tr className="bg-[#075c3b] text-white/90 text-[11px] uppercase tracking-wider">
-                <th className="py-2.5 pl-4 text-left">Fecha</th>
-                <th className="py-2.5">Correlativo</th>
-                <th className="py-2.5">Tipo / Motivo</th>
-                <th className="py-2.5 pr-3 border-r border-white/10">
-                  Destino / Origen
-                </th>
-
-                <th className="py-2.5 text-right">Cant.</th>
-                <th className="py-2.5 text-right">Costo Unit.</th>
-                <th className="py-2.5 text-right pr-3 border-r border-white/10">
-                  Total (S/)
-                </th>
-
-                <th className="py-2.5 text-right">Cant.</th>
-                <th className="py-2.5 text-right">Costo Unit.</th>
-                <th className="py-2.5 text-right pr-3 border-r border-white/10">
-                  Total (S/)
-                </th>
-
-                <th className="py-2.5 text-right">Cant.</th>
-                <th className="py-2.5 text-right">Costo Prom.</th>
-                <th className="py-2.5 text-right pr-4">Total Val. (S/)</th>
-              </tr>
-              </thead>
-
-              <tbody className="divide-y divide-[#e8eeeb]">
-              {/* Fila de Saldo Inicial */}
-              {kardexData && (
-                  <tr className="bg-[#edf3f0] font-semibold text-[#075c3b]">
-                    <td className="py-3 pl-4" colSpan={4}>
-                      SALDO INICIAL AL {startDate}
-                    </td>
-
-                    <td
-                        colSpan={3}
-                        className="border-r border-[#dce5e1] text-center text-[#78847f]"
-                    >
-                      —
-                    </td>
-
-                    <td
-                        colSpan={3}
-                        className="border-r border-[#dce5e1] text-center text-[#78847f]"
-                    >
-                      —
-                    </td>
-
-                    <td className="py-3 text-right font-bold text-[#18221e]">
-                      {kardexData.initialBalance.qty.toLocaleString('es-PE')}
-                    </td>
-
-                    <td className="py-3 text-right text-[#586860]">
-                      S/ {kardexData.initialBalance.cost.toFixed(2)}
-                    </td>
-
-                    <td className="py-3 text-right pr-4 font-black text-[#075c3b]">
-                      S/ {kardexData.initialBalance.total.toFixed(2)}
-                    </td>
-                  </tr>
-              )}
-
-              {/* Filas de Movimientos */}
-              {!kardexData || filteredRows.length === 0 ? (
-                  <tr>
-                    <td
-                        colSpan={13}
-                        className="py-10 text-center text-[#78847f]"
-                    >
-                      {!kardexData
-                          ? 'Selecciona un producto para consultar su Kardex.'
-                          : 'No se registran transacciones para este producto y almacén en el rango de fechas.'}
-                    </td>
-                  </tr>
-              ) : (
-                  filteredRows.map((r) => (
-                      <tr
-                          key={r.id}
-                          className="border-b border-[#e8eeeb] last:border-0 hover:bg-[#f7faf8]"
-                      >
-                        <td className="py-3 pl-4 whitespace-nowrap text-[#586860]">
-                          {r.date}
-                        </td>
-
-                        <td className="py-3 font-mono font-bold text-[#075c3b]">
-                          {r.correlative}
-                        </td>
-
-                        <td className="py-3">
-                      <span className="font-semibold text-[#20372e]">
-                        {r.type.toUpperCase()}
-                      </span>
-
-                          <span className="block text-[10px] text-[#78847f]">
-                        {r.reason}
-                      </span>
-                        </td>
-
-                        <td className="py-3 pr-3 border-r border-[#dce5e1] text-[#586860] max-w-[140px] truncate">
-                          {r.originOrDestination}
-                        </td>
-
-                        {/* ENTRADAS */}
-                        <td className="py-3 text-right font-bold text-[#08783f]">
-                          {r.entryQty
-                              ? `+${r.entryQty.toLocaleString('es-PE')}`
-                              : '—'}
-                        </td>
-
-                        <td className="py-3 text-right text-[#586860]">
-                          {r.entryCost
-                              ? `S/ ${r.entryCost.toFixed(2)}`
-                              : '—'}
-                        </td>
-
-                        <td className="py-3 text-right pr-3 border-r border-[#dce5e1] font-bold text-[#08783f]">
-                          {r.entryTotal
-                              ? `S/ ${r.entryTotal.toFixed(2)}`
-                              : '—'}
-                        </td>
-
-                        {/* SALIDAS */}
-                        <td className="py-3 text-right font-bold text-[#dc252d]">
-                          {r.exitQty
-                              ? `-${r.exitQty.toLocaleString('es-PE')}`
-                              : '—'}
-                        </td>
-
-                        <td className="py-3 text-right text-[#586860]">
-                          {r.exitCost
-                              ? `S/ ${r.exitCost.toFixed(2)}`
-                              : '—'}
-                        </td>
-
-                        <td className="py-3 text-right pr-3 border-r border-[#dce5e1] font-bold text-[#dc252d]">
-                          {r.exitTotal
-                              ? `S/ ${r.exitTotal.toFixed(2)}`
-                              : '—'}
-                        </td>
-
-                        {/* SALDO */}
-                        <td className="py-3 text-right font-bold text-[#18221e]">
-                          {r.balanceQty.toLocaleString('es-PE')}
-                        </td>
-
-                        <td className="py-3 text-right font-medium text-[#586860]">
-                          S/ {r.balanceCost.toFixed(2)}
-                        </td>
-
-                        <td className="py-3 text-right pr-4 font-black text-[#075c3b]">
-                          S/ {r.balanceTotal.toFixed(2)}
-                        </td>
-                      </tr>
-                  ))
-              )}
-              </tbody>
-            </table>
-          </div>
+                    <Paginacion
+                        paginaActual={pag.paginaActual}
+                        totalPaginas={pag.totalPaginas}
+                        totalRegistros={pag.totalRegistros}
+                        porPagina={pag.porPagina}
+                        desde={pag.desde}
+                        hasta={pag.hasta}
+                        onCambiarPagina={pag.irAPagina}
+                        onCambiarPorPagina={pag.cambiarPorPagina}
+                    />
+                  </>
+              )
+          )}
         </div>
       </div>
   );
 }
-
-export default KardexView;

@@ -1,557 +1,460 @@
-
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  AlertTriangle,
-  CheckCircle2,
-  ClipboardList,
-  Clock,
-  Lock,
+  ClipboardCheck,
   Plus,
-  Printer,
-  Search,
-  Unlock,
-  Warehouse,
-  X,
+  Save,
+  Lock,
+  ScanBarcode,
+  AlertCircle,
+  CheckCircle2,
+  Eye,
 } from 'lucide-react';
+import { reporteService } from '../services/reporteService';
+import { usePaginacion } from '../hooks/usepaginacion';
+import Paginacion from '../components/ui/paginacion';
 
-export function InventarioFisicoView({
-                                       state,
-                                       onCreateSession,
-                                       onUpdateCountedItems,
-                                       onConciliateSession,
-                                       onPrintActa,
-                                     }) {
-  const {
-    inventorySessions = [],
-    warehouses = [],
-    products = [],
-    currentUser,
-  } = state;
+function formatearFechaHora(iso) {
+  if (!iso) return '—';
+  const f = new Date(iso);
+  if (Number.isNaN(f.getTime())) return iso;
+  return f.toLocaleString('es-PE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
-  const [newModalOpen, setNewModalOpen] = useState(false);
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState(
-      warehouses[0]?.id || 'alm-1'
-  );
-  const [sessionNotes, setSessionNotes] = useState('');
+export default function InventarioFisicoView() {
+  const [sesiones, setSesiones] = useState([]);
+  const [sesionActiva, setSesionActiva] = useState(null);
+  const [conteos, setConteos] = useState({});
+  const [obsNuevaSesion, setObsNuevaSesion] = useState('');
+  const [aplicarAjustes, setAplicarAjustes] = useState(true);
+  const [codigoEscaner, setCodigoEscaner] = useState('');
 
-  const [activeSession, setActiveSession] = useState(null);
-  const [countsModalOpen, setCountsModalOpen] = useState(false);
-  const [editableItems, setEditableItems] = useState([]);
-  const [notification, setNotification] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [procesando, setProcesando] = useState(false);
+  const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
 
-  // Iniciar toma de inventario
-  const handleOpenNewSession = () => {
-    const availableWarehouses = warehouses.filter(
-        (warehouse) => !warehouse.isLockedForInventory
+  const pagSesiones = usePaginacion(sesiones, 8);
+  const pagDetalles = usePaginacion(sesionActiva?.detalles || [], 15);
+
+  const seleccionarSesion = (sesion) => {
+    setSesionActiva(sesion);
+    pagDetalles.reiniciarPagina();
+    if (!sesion) return;
+    const mapa = {};
+    sesion.detalles.forEach((d) => {
+      mapa[d.idProducto] = {
+        stockFisico: String(Number(d.stockFisico).toFixed(2)),
+        observacion: d.observacion || '',
+      };
+    });
+    setConteos(mapa);
+  };
+
+  const cargarSesiones = async (idSeleccionar = null) => {
+    setCargando(true);
+    setError('');
+    try {
+      const data = await reporteService.listarInventarios();
+      setSesiones(data);
+      if (idSeleccionar) {
+        const encontrada = data.find((s) => s.idInventarioFisico === idSeleccionar);
+        seleccionarSesion(encontrada || data[0] || null);
+      } else if (!sesionActiva && data.length > 0) {
+        seleccionarSesion(data[0]);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'No se pudieron cargar las sesiones de inventario.');
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarSesiones();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const notificar = (texto) => {
+    setMensaje(texto);
+    setError('');
+    setTimeout(() => setMensaje(''), 4500);
+  };
+
+  const iniciarNuevaSesion = async (e) => {
+    e.preventDefault();
+    setProcesando(true);
+    setError('');
+    try {
+      const creada = await reporteService.iniciarInventario({ observaciones: obsNuevaSesion.trim() || null });
+      setObsNuevaSesion('');
+      notificar(`Sesión ${creada.codigo} iniciada con ${creada.totalProductos} productos.`);
+      await cargarSesiones(creada.idInventarioFisico);
+    } catch (err) {
+      setError(err.response?.data?.message || 'No se pudo iniciar la sesión de inventario.');
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const sumarConEscaner = (e) => {
+    e.preventDefault();
+    if (!sesionActiva || sesionActiva.estado !== 'EN_PROCESO' || !codigoEscaner.trim()) return;
+    const codigo = codigoEscaner.trim().toLowerCase();
+    const match = sesionActiva.detalles.find(
+        (d) =>
+            (d.codigoBarra || '').toLowerCase() === codigo ||
+            (d.codigoInterno || '').toLowerCase() === codigo
     );
-
-    if (availableWarehouses.length === 0) {
-      setNotification('No hay almacenes disponibles para iniciar una toma de inventario.');
-      setTimeout(() => setNotification(null), 4000);
+    if (!match) {
+      setError(`Código "${codigoEscaner}" no encontrado en esta sesión de conteo.`);
       return;
     }
-
-    setSelectedWarehouseId(availableWarehouses[0].id);
-    setSessionNotes(
-        'Toma física de existencias y comprobación de saldos en almacén.'
-    );
-    setNewModalOpen(true);
+    setError('');
+    setConteos((prev) => {
+      const actual = prev[match.idProducto] || { stockFisico: '0.00', observacion: '' };
+      const nuevoValor = (Number(actual.stockFisico || 0) + 1).toFixed(2);
+      return { ...prev, [match.idProducto]: { ...actual, stockFisico: nuevoValor } };
+    });
+    notificar(`+1 contado en ${match.nombreProducto}`);
+    setCodigoEscaner('');
   };
 
-  const handleCreateSession = (e) => {
-    e.preventDefault();
-
-    if (!selectedWarehouseId) return;
-
-    onCreateSession(selectedWarehouseId, sessionNotes.trim());
-    setNewModalOpen(false);
-    setNotification(
-        'Sesión de inventario físico iniciada. El almacén ha sido bloqueado para operaciones.'
-    );
-    setTimeout(() => setNotification(null), 4000);
+  const guardarAvance = async () => {
+    if (!sesionActiva) return;
+    setProcesando(true);
+    setError('');
+    try {
+      const items = sesionActiva.detalles.map((d) => ({
+        idProducto: d.idProducto,
+        stockFisico: Number(conteos[d.idProducto]?.stockFisico ?? d.stockFisico),
+        observacion: conteos[d.idProducto]?.observacion || null,
+      }));
+      const actualizada = await reporteService.guardarConteo(sesionActiva.idInventarioFisico, { items });
+      notificar('Conteo físico guardado correctamente.');
+      await cargarSesiones(actualizada.idInventarioFisico);
+    } catch (err) {
+      setError(err.response?.data?.message || 'No se pudo guardar el conteo.');
+    } finally {
+      setProcesando(false);
+    }
   };
 
-  // Abrir modal de conteo físico
-  const handleOpenCounts = (session) => {
-    setActiveSession(session);
-    setEditableItems(session.items.map((item) => ({ ...item })));
-    setCountsModalOpen(true);
-  };
+  const cerrarYConciliar = async () => {
+    if (!sesionActiva) return;
+    setProcesando(true);
+    setError('');
+    try {
+      // Primero guarda cualquier cambio pendiente en pantalla (todos los productos, no solo la página visible)
+      const items = sesionActiva.detalles.map((d) => ({
+        idProducto: d.idProducto,
+        stockFisico: Number(conteos[d.idProducto]?.stockFisico ?? d.stockFisico),
+        observacion: conteos[d.idProducto]?.observacion || null,
+      }));
+      await reporteService.guardarConteo(sesionActiva.idInventarioFisico, { items });
 
-  const handleItemCountChange = (productId, val) => {
-    const counted = Math.max(0, Number(val) || 0);
-
-    setEditableItems((prev) =>
-        prev.map((item) => {
-          if (item.productId === productId) {
-            const diff = counted - item.theoreticalStock;
-            const diffVal =
-                Math.round(diff * item.unitCost * 100) / 100;
-
-            return {
-              ...item,
-              countedStock: counted,
-              difference: diff,
-              totalDifferenceValue: diffVal,
-            };
-          }
-
-          return item;
-        })
-    );
-  };
-
-  const handleSaveCounts = (e) => {
-    e.preventDefault();
-
-    if (!activeSession) return;
-
-    onUpdateCountedItems(activeSession.id, editableItems);
-    setCountsModalOpen(false);
-    setNotification(
-        'Cantidades de conteo físico guardadas en la sesión.'
-    );
-    setTimeout(() => setNotification(null), 3000);
-  };
-
-  const handleConciliate = (sessionId) => {
-    onConciliateSession(sessionId);
-    setCountsModalOpen(false);
-    setNotification(
-        'Inventario conciliado con éxito. Se han generado los ajustes correspondientes y desbloqueado el almacén.'
-    );
-    setTimeout(() => setNotification(null), 4000);
+      const cerrada = await reporteService.cerrarInventario(sesionActiva.idInventarioFisico, {
+        aplicarAjustes,
+        observaciones: sesionActiva.observaciones,
+      });
+      notificar(
+          aplicarAjustes
+              ? `Inventario ${cerrada.codigo} cerrado y ajustes aplicados en Lotes y Kardex.`
+              : `Inventario ${cerrada.codigo} cerrado solo como reporte (sin modificar stock).`
+      );
+      await cargarSesiones(cerrada.idInventarioFisico);
+    } catch (err) {
+      setError(err.response?.data?.message || 'No se pudo cerrar el inventario físico.');
+    } finally {
+      setProcesando(false);
+    }
   };
 
   return (
       <div className="space-y-6">
-        {/* Toast Notification */}
-        {notification && (
-            <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl bg-slate-900 px-5 py-3.5 text-white shadow-xl transition-all">
-              <div className="size-2 rounded-full bg-teal-400 animate-ping" />
-              <p className="text-sm font-medium">{notification}</p>
-              <button
-                  onClick={() => setNotification(null)}
-                  className="ml-2 text-white/70 hover:text-white"
-              >
-                <X className="size-4" />
-              </button>
+        <div>
+          <h2 className="text-3xl font-bold text-[#064c32]">Inventario Físico y Conciliación</h2>
+          <p className="text-base text-slate-600 mt-1">
+            Compara el stock del sistema contra el conteo físico en almacén, detecta sobrantes o faltantes y ajusta el Kardex.
+          </p>
+        </div>
+
+        {error && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-base">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <span>{error}</span>
             </div>
         )}
 
-        {/* Header */}
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-[34px]">
-              Inventario Físico (Toma de Inventario)
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Fotografía de stock teórico, conteo físico in-situ, cálculo de
-              diferencias y conciliación.
-            </p>
-          </div>
+        {mensaje && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-base">
+              <CheckCircle2 className="w-5 h-5 shrink-0" />
+              <span>{mensaje}</span>
+            </div>
+        )}
 
+        {/* Iniciar nueva sesión */}
+        <form
+            onSubmit={iniciarNuevaSesion}
+            className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 items-end"
+        >
+          <div className="flex-1 w-full">
+            <label className="block text-base font-medium text-slate-700 mb-1">
+              Iniciar Nueva Toma de Inventario Físico
+            </label>
+            <input
+                type="text"
+                placeholder="Observación inicial (ej. Conteo trimestral - Almacén Central)"
+                value={obsNuevaSesion}
+                onChange={(e) => setObsNuevaSesion(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base"
+            />
+          </div>
           <button
-              onClick={handleOpenNewSession}
-              className="flex items-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-teal-800"
+              type="submit"
+              disabled={procesando}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#064c32] hover:bg-[#053b27] text-white text-base font-semibold cursor-pointer whitespace-nowrap"
           >
-            <Plus className="size-5" />
-            Iniciar Toma de Inventario
+            <Plus className="w-5 h-5" /> Nueva Sesión de Conteo
           </button>
-        </div>
+        </form>
 
-        {/* Explicación de la regla de bloqueo */}
-        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-amber-950">
-          <Lock className="size-5 text-amber-700 shrink-0 mt-0.5" />
-          <div className="text-xs leading-relaxed">
-            <strong>Regla de consistencia:</strong> Mientras una sesión de
-            inventario esté en estado <em>Abierta</em>, el almacén
-            correspondiente queda bloqueado para cualquier movimiento de
-            entrada o salida. Al confirmar la conciliación, el sistema
-            generará automáticamente los asientos de ajuste (sobrantes o
-            faltantes) y desbloqueará el almacén.
-          </div>
-        </div>
-
-        {/* Lista de Sesiones de Inventario */}
-        <div className="space-y-4">
-          {inventorySessions.map((session) => {
-            const isOpen = session.status === 'abierta';
-            const diffItems = session.items.filter(
-                (item) => item.difference !== 0
-            );
-            const totalVarianceVal = session.items.reduce(
-                (acc, item) => acc + item.totalDifferenceValue,
-                0
-            );
-
-            return (
-                <div
-                    key={session.id}
-                    className={`rounded-2xl border bg-white p-5 shadow-xs transition ${
-                        isOpen
-                            ? 'border-amber-300 ring-2 ring-amber-100'
-                            : 'border-slate-200'
-                    }`}
-                >
-                  <div className="flex flex-col justify-between gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-center">
-                    <div className="flex items-center gap-3">
-                  <span className="font-mono text-xs font-black text-teal-800 bg-teal-50 px-2.5 py-1 rounded-lg">
-                    {session.code}
-                  </span>
-
-                      <div>
-                        <h3 className="font-bold text-sm text-slate-900">
-                          {session.warehouseName}
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                          Fecha: {session.date} • Fotografía de existencias:{' '}
-                          {session.snapshotDate}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2.5">
-                  <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
-                          isOpen
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-emerald-100 text-emerald-800'
-                      }`}
-                  >
-                    {isOpen ? (
-                        <Lock className="size-3" />
-                    ) : (
-                        <CheckCircle2 className="size-3" />
-                    )}
-                    {isOpen
-                        ? 'SESIÓN ABIERTA (Almacén Bloqueado)'
-                        : 'CONCILIADA'}
-                  </span>
-
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
+          {/* Lista de sesiones */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+            <div className="px-5 py-3.5 bg-[#064c32] text-white font-semibold text-base flex items-center gap-2">
+              <ClipboardCheck className="w-5 h-5" /> Sesiones ({sesiones.length})
+            </div>
+            <div className="divide-y divide-slate-200">
+              {cargando ? (
+                  <div className="p-6 text-center text-slate-500">Cargando...</div>
+              ) : pagSesiones.itemsPaginados.length === 0 ? (
+                  <div className="p-6 text-center text-slate-500">Aún no hay inventarios registrados.</div>
+              ) : (
+                  pagSesiones.itemsPaginados.map((s) => (
                       <button
-                          onClick={() => handleOpenCounts(session)}
-                          className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        {isOpen
-                            ? 'Registrar Conteo Físico'
-                            : 'Ver Detalle Conteo'}
-                      </button>
-
-                      <button
-                          onClick={() => onPrintActa(session)}
-                          className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          title="Imprimir Acta de Inventario Físico"
-                      >
-                        <Printer className="size-3.5" />
-                        Acta Oficial
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-4 sm:grid-cols-4 text-xs">
-                    <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-slate-500">Bienes Inventariados</p>
-                      <p className="mt-0.5 text-base font-black text-slate-800">
-                        {session.items.length} ítems
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-slate-500">Ítems con Diferencia</p>
-                      <p className="mt-0.5 text-base font-black text-amber-700">
-                        {diffItems.length} ítems
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-slate-500">
-                        Diferencia Neta Valorizada
-                      </p>
-                      <p
-                          className={`mt-0.5 text-base font-black ${
-                              totalVarianceVal >= 0
-                                  ? 'text-emerald-700'
-                                  : 'text-rose-700'
+                          key={s.idInventarioFisico}
+                          type="button"
+                          onClick={() => seleccionarSesion(s)}
+                          className={`w-full text-left p-4 hover:bg-slate-50 transition-colors cursor-pointer ${
+                              sesionActiva?.idInventarioFisico === s.idInventarioFisico ? 'bg-emerald-50 border-l-4 border-[#064c32]' : ''
                           }`}
                       >
-                        S/{' '}
-                        {totalVarianceVal.toLocaleString('es-PE', {
-                          minimumFractionDigits: 2,
-                        })}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-slate-500">Ajuste Generado</p>
-                      <p className="mt-0.5 text-xs font-mono font-bold text-teal-800">
-                        {session.adjustmentMovementId ||
-                            'Pendiente de conciliación'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-            );
-          })}
-
-          {inventorySessions.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-                <ClipboardList className="mx-auto mb-3 size-10 text-slate-300" />
-                <p className="font-bold text-slate-700">
-                  No hay sesiones de inventario físico
-                </p>
-                <p className="mt-1 text-sm text-slate-500">
-                  Inicia una toma de inventario para registrar las existencias
-                  físicas del almacén.
-                </p>
-              </div>
-          )}
-        </div>
-
-        {/* Modal Iniciar Sesión de Inventario */}
-        {newModalOpen && (
-            <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs"
-                onClick={() => setNewModalOpen(false)}
-            >
-              <div
-                  className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-                  onClick={(e) => e.stopPropagation()}
-              >
-                <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h3 className="text-lg font-bold text-slate-900">
-                    Iniciar Toma de Inventario
-                  </h3>
-                  <button
-                      onClick={() => setNewModalOpen(false)}
-                      className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
-                  >
-                    <X className="size-5" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleCreateSession} className="space-y-4">
-                  <label className="block text-xs font-bold text-slate-600">
-                    Almacén a Inventariar *
-                    <select
-                        value={selectedWarehouseId}
-                        onChange={(e) => setSelectedWarehouseId(e.target.value)}
-                        className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-900 outline-none focus:border-teal-600"
-                        required
-                    >
-                      {warehouses
-                          .filter((warehouse) => !warehouse.isLockedForInventory)
-                          .map((warehouse) => (
-                              <option key={warehouse.id} value={warehouse.id}>
-                                {warehouse.name}
-                              </option>
-                          ))}
-                    </select>
-                  </label>
-
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 leading-relaxed">
-                    Al iniciar, el sistema tomará una instantánea de las
-                    existencias teóricas del almacén seleccionado y bloqueará
-                    el registro de movimientos hasta la conciliación final.
-                  </div>
-
-                  <label className="block text-xs font-bold text-slate-600">
-                    Finalidad / Notas de la Comisión de Inventario
-                    <textarea
-                        rows={3}
-                        value={sessionNotes}
-                        onChange={(e) => setSessionNotes(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-800 outline-none focus:border-teal-600"
-                    />
-                  </label>
-
-                  <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
-                    <button
-                        type="button"
-                        onClick={() => setNewModalOpen(false)}
-                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                    >
-                      Cancelar
-                    </button>
-
-                    <button
-                        type="submit"
-                        className="rounded-xl bg-teal-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-teal-800"
-                    >
-                      Iniciar y Bloquear Almacén
-                    </button>
-                  </div>
-                </form>
-              </div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-bold text-[#064c32]">{s.codigo}</span>
+                          <span
+                              className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                  s.estado === 'EN_PROCESO'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                          >
+                      {s.estado}
+                    </span>
+                        </div>
+                        <p className="text-sm text-slate-600 mt-1">{formatearFechaHora(s.fechaInicio)}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {s.totalProductos} bienes · {s.totalConDiferencia} con diferencia
+                        </p>
+                      </button>
+                  ))
+              )}
             </div>
-        )}
 
-        {/* Modal Conteo Físico y Conciliación */}
-        {countsModalOpen && activeSession && (
-            <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs"
-                onClick={() => setCountsModalOpen(false)}
-            >
-              <div
-                  className="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl max-h-[92vh] overflow-y-auto"
-                  onClick={(e) => e.stopPropagation()}
-              >
-                <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900">
-                      Conteo Físico • {activeSession.code} [
-                      {activeSession.warehouseName}]
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Registre el stock contado. Las diferencias calcularán
-                      automáticamente el ajuste de conciliación.
-                    </p>
-                  </div>
+            {pagSesiones.totalPaginas > 1 && (
+                <Paginacion
+                    paginaActual={pagSesiones.paginaActual}
+                    totalPaginas={pagSesiones.totalPaginas}
+                    totalRegistros={pagSesiones.totalRegistros}
+                    porPagina={pagSesiones.porPagina}
+                    desde={pagSesiones.desde}
+                    hasta={pagSesiones.hasta}
+                    onCambiarPagina={pagSesiones.irAPagina}
+                />
+            )}
+          </div>
 
-                  <button
-                      onClick={() => setCountsModalOpen(false)}
-                      className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
-                  >
-                    <X className="size-5" />
-                  </button>
+          {/* Detalle de la sesión seleccionada */}
+          <div className="xl:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            {!sesionActiva ? (
+                <div className="p-10 text-center text-lg text-slate-500 flex flex-col items-center gap-2">
+                  <Eye className="w-8 h-8 text-slate-400" />
+                  Selecciona o inicia una sesión de inventario físico para registrar el conteo.
                 </div>
+            ) : (
+                <div className="p-6 space-y-5">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b border-slate-200 pb-4">
+                    <div>
+                      <h3 className="text-2xl font-bold text-[#064c32]">Sesión {sesionActiva.codigo}</h3>
+                      <p className="text-sm text-slate-600">
+                        Responsable: <strong>{sesionActiva.responsableNombre}</strong> · Inicio:{' '}
+                        {formatearFechaHora(sesionActiva.fechaInicio)}
+                        {sesionActiva.fechaCierre ? ` · Cierre: ${formatearFechaHora(sesionActiva.fechaCierre)}` : ''}
+                      </p>
+                    </div>
 
-                <form onSubmit={handleSaveCounts} className="space-y-4">
-                  <div className="overflow-x-auto rounded-xl border border-slate-200 text-xs">
-                    <table className="w-full text-left">
-                      <thead className="bg-slate-50 font-bold text-slate-600 border-b border-slate-200">
-                      <tr>
-                        <th className="p-2.5 pl-3">Producto</th>
-                        <th className="p-2.5 text-center">U.M.</th>
-                        <th className="p-2.5 text-center">Stock Teórico</th>
-                        <th className="p-2.5 text-center w-28">
-                          Conteo Físico
-                        </th>
-                        <th className="p-2.5 text-center">Diferencia</th>
-                        <th className="p-2.5 text-right pr-3">
-                          Impacto Valor (S/)
-                        </th>
-                      </tr>
-                      </thead>
-
-                      <tbody className="divide-y divide-slate-100">
-                      {editableItems.map((item) => {
-                        const isZero = item.difference === 0;
-                        const isSobrante = item.difference > 0;
-
-                        return (
-                            <tr
-                                key={item.productId}
-                                className="hover:bg-slate-50/50"
-                            >
-                              <td className="p-2.5 pl-3">
-                                <p className="font-bold text-slate-900">
-                                  {item.productName}
-                                </p>
-                                <span className="font-mono text-[10px] text-teal-800">
-                              {item.productCode}
-                            </span>
-                              </td>
-
-                              <td className="p-2.5 text-center text-slate-500">
-                                {item.unit}
-                              </td>
-
-                              <td className="p-2.5 text-center font-bold text-slate-700">
-                                {item.theoreticalStock}
-                              </td>
-
-                              <td className="p-2.5 text-center">
-                                {activeSession.status === 'abierta' ? (
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        step="any"
-                                        value={item.countedStock}
-                                        onChange={(e) =>
-                                            handleItemCountChange(
-                                                item.productId,
-                                                e.target.value
-                                            )
-                                        }
-                                        className="h-8 w-20 rounded-lg border border-slate-200 text-center font-bold text-teal-900 outline-none focus:border-teal-600"
-                                    />
-                                ) : (
-                                    <span className="font-bold text-slate-900">
-                                {item.countedStock}
-                              </span>
-                                )}
-                              </td>
-
-                              <td className="p-2.5 text-center font-bold">
-                            <span
-                                className={`rounded-full px-2 py-0.5 text-xs ${
-                                    isZero
-                                        ? 'bg-slate-100 text-slate-600'
-                                        : isSobrante
-                                            ? 'bg-emerald-100 text-emerald-800'
-                                            : 'bg-rose-100 text-rose-800'
-                                }`}
-                            >
-                              {isSobrante
-                                  ? `+${item.difference}`
-                                  : item.difference}
-                            </span>
-                              </td>
-
-                              <td
-                                  className={`p-2.5 text-right pr-3 font-bold ${
-                                      isZero
-                                          ? 'text-slate-400'
-                                          : isSobrante
-                                              ? 'text-emerald-700'
-                                              : 'text-rose-700'
-                                  }`}
-                              >
-                                {isSobrante ? '+' : ''}
-                                S/ {item.totalDifferenceValue.toFixed(2)}
-                              </td>
-                            </tr>
-                        );
-                      })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                    <button
-                        type="button"
-                        onClick={() => setCountsModalOpen(false)}
-                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                    >
-                      Cerrar
-                    </button>
-
-                    {activeSession.status === 'abierta' && (
-                        <div className="flex gap-2">
+                    {sesionActiva.estado === 'EN_PROCESO' && (
+                        <form onSubmit={sumarConEscaner} className="flex gap-2">
+                          <div className="relative">
+                            <ScanBarcode className="w-5 h-5 text-[#064c32] absolute left-3 top-3" />
+                            <input
+                                type="text"
+                                placeholder="Escanear bien (+1)..."
+                                value={codigoEscaner}
+                                onChange={(e) => setCodigoEscaner(e.target.value)}
+                                className="pl-10 pr-3 py-2.5 w-60 rounded-xl border-2 border-emerald-700/40 text-base"
+                            />
+                          </div>
                           <button
                               type="submit"
-                              className="rounded-xl border border-teal-700 bg-white px-4 py-2.5 text-xs font-bold text-teal-700 hover:bg-teal-50"
+                              className="px-4 py-2.5 rounded-xl bg-emerald-700 text-white text-sm font-semibold cursor-pointer"
                           >
-                            Guardar Conteo Temporal
+                            +1
                           </button>
-
-                          <button
-                              type="button"
-                              onClick={() => handleConciliate(activeSession.id)}
-                              className="rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-800"
-                          >
-                            Confirmar y Conciliar Inventario
-                          </button>
-                        </div>
+                        </form>
                     )}
                   </div>
-                </form>
-              </div>
-            </div>
-        )}
+
+                  <div className="border border-slate-200 rounded-xl overflow-hidden flex flex-col">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-base">
+                        <thead>
+                        <tr className="bg-[#064c32] text-white text-sm uppercase">
+                          <th className="py-3 px-4">Bien / Cuenta</th>
+                          <th className="py-3 px-4 text-right">Stock Sistema</th>
+                          <th className="py-3 px-4 text-right w-36">Stock Físico</th>
+                          <th className="py-3 px-4 text-right">Diferencia</th>
+                          <th className="py-3 px-4">Observación</th>
+                        </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                        {pagDetalles.itemsPaginados.map((d) => {
+                          const edit = conteos[d.idProducto] || {
+                            stockFisico: String(d.stockFisico),
+                            observacion: d.observacion || '',
+                          };
+                          const fisicoNum = Number(edit.stockFisico || 0);
+                          const diffNum = fisicoNum - Number(d.stockSistema || 0);
+
+                          return (
+                              <tr key={d.idInventarioDetalle} className="hover:bg-slate-50">
+                                <td className="py-3 px-4">
+                                  <div className="font-semibold">{d.nombreProducto}</div>
+                                  <div className="text-xs text-slate-500">
+                                    {d.codigoInterno} · Cta. {d.codigoCuenta || '—'} · {d.unidadMedida}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 text-right font-medium">{Number(d.stockSistema).toFixed(2)}</td>
+                                <td className="py-3 px-4 text-right">
+                                  {sesionActiva.estado === 'EN_PROCESO' ? (
+                                      <input
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          value={edit.stockFisico}
+                                          onChange={(e) =>
+                                              setConteos((prev) => ({
+                                                ...prev,
+                                                [d.idProducto]: { ...edit, stockFisico: e.target.value },
+                                              }))
+                                          }
+                                          className="w-28 px-2.5 py-1.5 rounded-lg border border-slate-300 text-right font-semibold"
+                                      />
+                                  ) : (
+                                      <span className="font-semibold">{Number(d.stockFisico).toFixed(2)}</span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-right font-bold">
+                              <span
+                                  className={
+                                    diffNum > 0
+                                        ? 'text-emerald-700'
+                                        : diffNum < 0
+                                            ? 'text-red-700'
+                                            : 'text-slate-500'
+                                  }
+                              >
+                                {diffNum > 0 ? `+${diffNum.toFixed(2)}` : diffNum.toFixed(2)}
+                              </span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  {sesionActiva.estado === 'EN_PROCESO' ? (
+                                      <input
+                                          type="text"
+                                          placeholder="Motivo si hay diferencia..."
+                                          value={edit.observacion}
+                                          onChange={(e) =>
+                                              setConteos((prev) => ({
+                                                ...prev,
+                                                [d.idProducto]: { ...edit, observacion: e.target.value },
+                                              }))
+                                          }
+                                          className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-sm"
+                                      />
+                                  ) : (
+                                      <span className="text-sm text-slate-600">{d.observacion || '—'}</span>
+                                  )}
+                                </td>
+                              </tr>
+                          );
+                        })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <Paginacion
+                        paginaActual={pagDetalles.paginaActual}
+                        totalPaginas={pagDetalles.totalPaginas}
+                        totalRegistros={pagDetalles.totalRegistros}
+                        porPagina={pagDetalles.porPagina}
+                        desde={pagDetalles.desde}
+                        hasta={pagDetalles.hasta}
+                        onCambiarPagina={pagDetalles.irAPagina}
+                        onCambiarPorPagina={pagDetalles.cambiarPorPagina}
+                    />
+                  </div>
+
+                  {sesionActiva.estado === 'EN_PROCESO' && (
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <label className="flex items-center gap-2.5 text-base font-medium text-slate-800 cursor-pointer">
+                          <input
+                              type="checkbox"
+                              checked={aplicarAjustes}
+                              onChange={(e) => setAplicarAjustes(e.target.checked)}
+                              className="w-5 h-5 accent-[#064c32]"
+                          />
+                          Aplicar ajustes automáticos (sobrantes/faltantes) en Lotes y Kardex al cerrar
+                        </label>
+
+                        <div className="flex gap-3">
+                          <button
+                              type="button"
+                              disabled={procesando}
+                              onClick={guardarAvance}
+                              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-[#064c32] text-[#064c32] hover:bg-emerald-50 text-base font-semibold cursor-pointer"
+                          >
+                            <Save className="w-5 h-5" /> Guardar Avance
+                          </button>
+                          <button
+                              type="button"
+                              disabled={procesando}
+                              onClick={cerrarYConciliar}
+                              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#064c32] hover:bg-[#053b27] text-white text-base font-semibold cursor-pointer"
+                          >
+                            <Lock className="w-5 h-5" /> Cerrar Inventario
+                          </button>
+                        </div>
+                      </div>
+                  )}
+                </div>
+            )}
+          </div>
+        </div>
       </div>
   );
 }
-
-export default InventarioFisicoView;

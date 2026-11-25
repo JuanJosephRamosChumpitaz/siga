@@ -16,6 +16,9 @@ public class Categoria {
     @Column(name = "idcategoria", nullable = false)
     private Integer id;
 
+    @Column(name = "codigo", nullable = false, length = 45, unique = true)
+    private String codigo;
+
     @Column(name = "nombre", nullable = false, length = 45)
     private String nombre;
 
@@ -26,5 +29,4 @@ public class Categoria {
 
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
-
 }

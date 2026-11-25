@@ -1,535 +1,959 @@
-
-import React, { useState, useMemo } from 'react'
+import { useEffect, useState } from 'react';
 import {
-  AlertTriangle,
-  ArrowDown,
-  ArrowLeftRight,
-  ArrowUp,
-  Ban,
-  Download,
+  FileInput,
+  Layers,
   Plus,
+  Trash2,
   Printer,
-  RotateCcw,
-  Search,
+  ScanBarcode,
+  AlertCircle,
+  CheckCircle2,
+  Eye,
   X,
-} from 'lucide-react'
+  CalendarClock,
+} from 'lucide-react';
+import { entradaService } from '../services/entradaService';
+import { catalogoService } from '../services/catalogoService';
+import { usePaginacion } from '../hooks/usepaginacion';
+import Paginacion from '../components/ui/paginacion';
 
-export function MovimientosView({
-                                  state,
-                                  initialTypeFilter,
-                                  onOpenNewMovement,
-                                  onConfirmMovement,
-                                  onReverseMovement,
-                                  onPrintMovement,
-                                  onOpenKardex,
-                                }) {
-  const { movements, warehouses } = state
+const CABECERA_INICIAL = {
+  numeroNea: '',
+  fechaEmision: new Date().toISOString().slice(0, 10),
+  idProveedor: '',
+  procedencia: '',
+  destino: 'IESTP "CAÑETE"',
+  referencia: '',
+  modalidad: '',
+  observaciones: '',
+};
 
-  const [search, setSearch] = useState('')
-  const [typeFilter, setTypeFilter] = useState(initialTypeFilter || 'all')
-  const [warehouseFilter, setWarehouseFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
+function formatearFecha(iso) {
+  if (!iso) return '—';
+  const fecha = new Date(iso);
+  if (Number.isNaN(fecha.getTime())) return iso;
+  return fecha.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
 
-  const [activeMovement, setActiveMovement] = useState(null)
-  const [reversalModalOpen, setReversalModalOpen] = useState(false)
-  const [reversalReason, setReversalReason] = useState('')
-  const [notification, setNotification] = useState(null)
-
-  const filteredMovements = useMemo(() => {
-    return movements.filter((m) => {
-      const q = search.toLowerCase()
-
-      const matchSearch =
-          (m.correlative || '').toLowerCase().includes(q) ||
-          (m.docNumber || '').toLowerCase().includes(q) ||
-          (m.docType || '').toLowerCase().includes(q) ||
-          (m.observations || '').toLowerCase().includes(q) ||
-          (m.recipient || '').toLowerCase().includes(q) ||
-          (m.responsible || '').toLowerCase().includes(q) ||
-          m.items.some(
-              (it) =>
-                  (it.productName || '').toLowerCase().includes(q) ||
-                  (it.productCode || '').toLowerCase().includes(q)
-          )
-
-      const matchType = typeFilter === 'all' || m.type === typeFilter
-      const matchWarehouse =
-          warehouseFilter === 'all' || m.warehouseId === warehouseFilter
-      const matchStatus = statusFilter === 'all' || m.status === statusFilter
-
-      return matchSearch && matchType && matchWarehouse && matchStatus
-    })
-  }, [movements, search, typeFilter, warehouseFilter, statusFilter])
-
-  const handleOpenReversal = (m) => {
-    setActiveMovement(m)
-    setReversalReason('')
-    setReversalModalOpen(true)
+function obtenerEstadoVencimiento(lote) {
+  if (!lote.perecible || !lote.fechaVencimiento) {
+    return { texto: 'No perecible', clase: 'bg-slate-100 text-slate-600' };
   }
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const vence = new Date(`${lote.fechaVencimiento}T00:00:00`);
+  const diffDias = Math.ceil((vence - hoy) / (1000 * 60 * 60 * 24));
 
-  const handleConfirmReversal = (e) => {
-    e.preventDefault()
-
-    if (!activeMovement || !reversalReason.trim()) return
-
-    onReverseMovement(activeMovement.id, reversalReason.trim())
-    setReversalModalOpen(false)
-
-    setNotification(
-        `Operación de anulación y contra-asiento ejecutada para ${activeMovement.correlative}.`
-    )
-
-    setTimeout(() => setNotification(null), 4000)
+  if (diffDias < 0) {
+    return { texto: `Vencido (${Math.abs(diffDias)}d)`, clase: 'bg-red-100 text-red-800' };
   }
+  if (diffDias <= 30) {
+    return { texto: `Vence en ${diffDias}d`, clase: 'bg-amber-100 text-amber-800' };
+  }
+  return { texto: 'Vigente', clase: 'bg-emerald-100 text-emerald-800' };
+}
 
-  const handleExportCSV = () => {
-    const headers = [
-      'Correlativo',
-      'Fecha',
-      'Hora',
-      'Tipo',
-      'Motivo',
-      'Almacen',
-      'Documento',
-      'Responsable',
-      'Destinatario',
-      'Items_Count',
-      'Importe_Total',
-      'Estado',
-    ]
+export default function MovimientosView() {
+  const [tab, setTab] = useState('entradas');
+  const [notas, setNotas] = useState([]);
+  const [lotes, setLotes] = useState([]);
+  const [productos, setProductos] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
 
-    const escapeCSV = (value) => {
-      const text = String(value ?? '')
-      return `"${text.replace(/"/g, '""')}"`
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
+
+  // Formulario NEA
+  const [cabecera, setCabecera] = useState(CABECERA_INICIAL);
+  const [items, setItems] = useState([]);
+  const [productoSeleccionado, setProductoSeleccionado] = useState('');
+  const [codigoEscaner, setCodigoEscaner] = useState('');
+
+  // Filtros de Lotes
+  const [soloConStock, setSoloConStock] = useState(true);
+  const [soloPorVencer, setSoloPorVencer] = useState(false);
+
+  // Modal de visualización / impresión de NEA
+  const [neaActiva, setNeaActiva] = useState(null);
+
+  const cargarTodo = async () => {
+    setCargando(true);
+    setError('');
+    try {
+      const [notasData, lotesData, prodData, provData] = await Promise.all([
+        entradaService.listarNotasEntrada(),
+        entradaService.listarLotes(false),
+        catalogoService.listarProductos(true),
+        catalogoService.listarProveedores(true),
+      ]);
+      setNotas(notasData);
+      setLotes(lotesData);
+      setProductos(prodData);
+      setProveedores(provData);
+    } catch (err) {
+      setError(err.response?.data?.message || 'No se pudo cargar el módulo de entradas y lotes.');
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarTodo();
+  }, []);
+
+  const notificar = (texto) => {
+    setMensaje(texto);
+    setError('');
+    setTimeout(() => setMensaje(''), 4500);
+  };
+
+  const agregarProductoALista = (prod) => {
+    if (!prod) return;
+    setItems((prev) => {
+      const existe = prev.find((i) => i.idProducto === prod.idProducto);
+      if (existe) {
+        return prev.map((i) =>
+            i.idProducto === prod.idProducto
+                ? { ...i, cantidad: String((Number(i.cantidad || 0) + 1).toFixed(2)) }
+                : i
+        );
+      }
+      return [
+        ...prev,
+        {
+          idProducto: prod.idProducto,
+          codigoInterno: prod.codigoInterno,
+          nombre: prod.nombre,
+          unidad: prod.abreviaturaUnidad || prod.nombreUnidad,
+          perecible: Boolean(prod.perecible),
+          cantidad: '1.00',
+          costoUnitario: String(prod.precioUnidad ?? '0.00'),
+          fechaVencimiento: '',
+        },
+      ];
+    });
+  };
+
+  const handleAgregarManual = () => {
+    if (!productoSeleccionado) return;
+    const prod = productos.find((p) => p.idProducto === Number(productoSeleccionado));
+    agregarProductoALista(prod);
+    setProductoSeleccionado('');
+  };
+
+  const handleEscaner = async (e) => {
+    e.preventDefault();
+    if (!codigoEscaner.trim()) return;
+    setError('');
+    try {
+      const prod = await catalogoService.buscarProductoPorCodigo(codigoEscaner.trim());
+      agregarProductoALista(prod);
+      setCodigoEscaner('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Código no encontrado en el catálogo.');
+    }
+  };
+
+  const actualizarItem = (idProducto, campo, valor) => {
+    setItems((prev) =>
+        prev.map((i) => (i.idProducto === idProducto ? { ...i, [campo]: valor } : i))
+    );
+  };
+
+  const quitarItem = (idProducto) => {
+    setItems((prev) => prev.filter((i) => i.idProducto !== idProducto));
+  };
+
+  const handleCambioProveedor = (idProv) => {
+    const prov = proveedores.find((p) => p.idProveedor === Number(idProv));
+    setCabecera((prev) => ({
+      ...prev,
+      idProveedor: idProv,
+      procedencia: prov ? prov.razonSocial : prev.procedencia,
+    }));
+  };
+
+  const registrarNea = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (items.length === 0) {
+      setError('Agrega al menos un bien antes de registrar la Nota de Entrada.');
+      return;
     }
 
-    const rows = filteredMovements.map((m) => {
-      const wh = warehouses.find((w) => w.id === m.warehouseId)
+    for (const item of items) {
+      if (Number(item.cantidad) <= 0) {
+        setError(`La cantidad de "${item.nombre}" debe ser mayor a cero.`);
+        return;
+      }
+      if (item.perecible && !item.fechaVencimiento) {
+        setError(`El bien "${item.nombre}" es perecible y requiere fecha de vencimiento.`);
+        return;
+      }
+    }
 
-      return [
-        escapeCSV(m.correlative),
-        escapeCSV(m.date),
-        escapeCSV(m.time),
-        escapeCSV(m.type),
-        escapeCSV(m.reason),
-        escapeCSV(wh ? wh.name : m.warehouseId),
-        escapeCSV(`${m.docType} ${m.docNumber}`),
-        escapeCSV(m.responsible),
-        escapeCSV(m.recipient),
-        m.items.length,
-        Number(m.totalAmount || 0).toFixed(2),
-        escapeCSV(m.status),
-      ]
-    })
+    setGuardando(true);
+    try {
+      const payload = {
+        numeroNea: cabecera.numeroNea.trim() || null,
+        fechaEmision: cabecera.fechaEmision ? `${cabecera.fechaEmision}T09:00:00` : null,
+        idProveedor: cabecera.idProveedor ? Number(cabecera.idProveedor) : null,
+        procedencia: cabecera.procedencia.trim(),
+        destino: cabecera.destino.trim() || 'IESTP "CAÑETE"',
+        referencia: cabecera.referencia.trim() || null,
+        modalidad: cabecera.modalidad.trim() || null,
+        observaciones: cabecera.observaciones.trim() || null,
+        items: items.map((i) => ({
+          idProducto: i.idProducto,
+          cantidad: Number(i.cantidad),
+          costoUnitario: Number(i.costoUnitario || 0),
+          fechaVencimiento: i.fechaVencimiento || null,
+        })),
+      };
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((r) => r.join(',')),
-    ].join('\n')
+      const creada = await entradaService.registrarNotaEntrada(payload);
+      notificar(`Nota de Entrada ${creada.numeroNea} registrada. Stock y Kardex actualizados.`);
+      setCabecera(CABECERA_INICIAL);
+      setItems([]);
+      setNeaActiva(creada);
+      await cargarTodo();
+    } catch (err) {
+      setError(err.response?.data?.message || 'No se pudo registrar la Nota de Entrada.');
+    } finally {
+      setGuardando(false);
+    }
+  };
 
-    const blob = new Blob(['\uFEFF' + csvContent], {
-      type: 'text/csv;charset=utf-8;',
-    })
+  const imprimirNeaOficial = (nota) => {
+    if (!nota) return;
+    const fecha = new Date(nota.fechaEmision);
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const anio = fecha.getFullYear();
 
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
+    const filas = nota.items
+        .map(
+            (it) => `
+        <tr>
+          <td style="text-align:center;">${it.codigoInterno || it.idProducto}</td>
+          <td style="text-align:right;">${Number(it.cantidadInicial).toFixed(2)}</td>
+          <td>
+            <strong>${it.nombreProducto}</strong><br/>
+            <span style="font-size:11px; color:#444;">Cuenta: ${it.codigoCuenta || '—'}${
+                it.fechaVencimiento ? ` · Vence: ${it.fechaVencimiento}` : ''
+            }</span>
+          </td>
+          <td style="text-align:center;">${it.unidadMedida || 'UND'}</td>
+          <td style="text-align:right;">S/ ${Number(it.costoUnitario).toFixed(2)}</td>
+          <td style="text-align:right;">S/ ${Number(it.subtotal).toFixed(2)}</td>
+        </tr>
+      `
+        )
+        .join('');
 
-    link.href = url
-    link.setAttribute(
-        'download',
-        `movimientos_almacen_sigal_${new Date().toISOString().slice(0, 10)}.csv`
-    )
+    const ventana = window.open('', '_blank', 'width=900,height=700');
+    if (!ventana) return;
 
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    ventana.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Nota de Entrada - ${nota.numeroNea}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 28px; color: #111; }
+            .header { text-align: center; margin-bottom: 18px; }
+            .header h2 { margin: 0; font-size: 16px; }
+            .header h3 { margin: 6px 0 2px; font-size: 15px; text-decoration: underline; }
+            .meta { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+            .meta td { border: 1px solid #333; padding: 6px 8px; }
+            .meta .lbl { font-weight: bold; background: #f2f2f2; width: 160px; }
+            .tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+            .tabla th, .tabla td { border: 1px solid #333; padding: 7px 8px; }
+            .tabla th { background: #e8f5ee; }
+            .total { text-align: right; font-weight: bold; font-size: 14px; margin-top: 12px; }
+            .firmas { display: flex; justify-content: space-around; margin-top: 64px; text-align: center; font-size: 12px; }
+            .firma-linea { border-top: 1px solid #111; width: 220px; padding-top: 6px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>INSTITUTO DE EDUCACIÓN SUPERIOR TECNOLÓGICO PÚBLICO "CAÑETE"</h2>
+            <h3>NOTA DE ENTRADA A ALMACÉN</h3>
+            <div style="font-size:15px; font-weight:bold; margin-top:4px;">Nº ${nota.numeroNea}</div>
+          </div>
 
-    URL.revokeObjectURL(url)
-  }
+          <table class="meta">
+            <tr>
+              <td class="lbl">PROCEDENCIA</td>
+              <td>${nota.procedencia}</td>
+              <td class="lbl" style="width:90px;">FECHA</td>
+              <td style="width:120px; text-align:center;">${dia} / ${mes} / ${anio}</td>
+            </tr>
+            <tr>
+              <td class="lbl">DESTINO</td>
+              <td colspan="3">${nota.destino}</td>
+            </tr>
+            <tr>
+              <td class="lbl">REFERENCIA</td>
+              <td>${nota.referencia || '—'}</td>
+              <td class="lbl">PROVEEDOR</td>
+              <td>${nota.proveedorRuc ? `${nota.proveedorRuc} - ${nota.proveedorRazonSocial}` : '—'}</td>
+            </tr>
+            <tr>
+              <td class="lbl">MODALIDAD</td>
+              <td colspan="3">${nota.modalidad || '—'}</td>
+            </tr>
+          </table>
+
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th style="width:90px;">CÓDIGO</th>
+                <th style="width:80px;">CANT.</th>
+                <th>DESCRIPCIÓN</th>
+                <th style="width:100px;">UND. MEDIDA</th>
+                <th style="width:100px;">P. UNIT</th>
+                <th style="width:110px;">P. TOTAL</th>
+              </tr>
+            </thead>
+            <tbody>${filas}</tbody>
+          </table>
+
+          <div class="total">TOTAL VALORIZADO: S/ ${Number(nota.totalValorizado).toFixed(2)}</div>
+
+          <div class="firmas">
+            <div class="firma-linea">
+              <strong>RESPONSABLE DE ALMACÉN</strong><br/>
+              ${nota.responsableNombre || ''}
+            </div>
+            <div class="firma-linea">
+              <strong>V° B° ADMINISTRACIÓN</strong>
+            </div>
+          </div>
+
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    ventana.document.close();
+  };
+
+  const totalFormulario = items.reduce(
+      (acc, it) => acc + Number(it.cantidad || 0) * Number(it.costoUnitario || 0),
+      0
+  );
+
+  const lotesFiltrados = lotes.filter((l) => {
+    if (soloConStock && Number(l.cantidadRestante) <= 0) return false;
+    if (soloPorVencer) {
+      if (!l.perecible || !l.fechaVencimiento) return false;
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const vence = new Date(`${l.fechaVencimiento}T00:00:00`);
+      const diffDias = Math.ceil((vence - hoy) / (1000 * 60 * 60 * 24));
+      if (diffDias > 30) return false;
+    }
+    return true;
+  });
+
+  const pagNotas = usePaginacion(notas, 10);
+  const pagLotes = usePaginacion(lotesFiltrados, 10);
 
   return (
       <div className="space-y-6">
-        {/* Toast Notification */}
-        {notification && (
-            <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl bg-[#064c32] px-5 py-3.5 text-white shadow-xl transition-all">
-              <div className="size-2 rounded-full bg-[#f5db38] animate-ping" />
-              <p className="text-sm font-medium">{notification}</p>
-              <button
-                  onClick={() => setNotification(null)}
-                  className="ml-2 text-white/70 hover:text-white"
-              >
-                <X className="size-4" />
-              </button>
+        <div>
+          <h2 className="text-3xl font-bold text-[#064c32]">Entradas a Almacén (NEA) y Lotes</h2>
+          <p className="text-base text-slate-600 mt-1">
+            Registra ingresos de bienes mediante Nota de Entrada a Almacén; el sistema crea lotes PEPS, suma stock y actualiza el Kardex.
+          </p>
+        </div>
+
+        {error && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-base">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <span>{error}</span>
             </div>
         )}
 
-        {/* Header */}
-        <div className="mb-6 flex flex-col justify-between gap-5 md:flex-row md:items-center">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-[#064c32] md:text-[39px]">
-              Movimientos de Almacén
-            </h1>
-            <p className="mt-1 text-base text-[#687871] md:text-lg">
-              Registro de ingresos (O/C), salidas (PECOSA), transferencias,
-              devoluciones y ajustes.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button
-                onClick={onOpenNewMovement}
-                className="flex items-center gap-2 rounded-xl bg-[#075c3b] px-5 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#064c32]"
-            >
-              <Plus className="size-5" />
-              Registrar Movimiento
-            </button>
-
-            <button
-                onClick={handleExportCSV}
-                className="flex items-center gap-2 rounded-xl border border-[#075c3b] bg-white px-5 py-3.5 text-sm font-bold text-[#075c3b] hover:bg-[#edf3f0]"
-            >
-              <Download className="size-5" />
-              Exportar CSV
-            </button>
-          </div>
-        </div>
-
-        {/* Filtros */}
-        <div className="mb-5 grid gap-4 rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)] sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-[#52635c]">
-            Buscar
-          </span>
-
-            <div className="relative mt-1.5">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#84918b]" />
-
-              <input
-                  type="text"
-                  placeholder="Correlativo, N° documento..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-[#d8e1dd] pl-9 pr-3 text-sm text-[#20372e] outline-none focus:border-[#0b7549]"
-              />
+        {mensaje && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-base">
+              <CheckCircle2 className="w-5 h-5 shrink-0" />
+              <span>{mensaje}</span>
             </div>
-          </div>
+        )}
 
-          <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-[#52635c]">
-            Tipo de Operación
-          </span>
+        {/* Pestañas */}
+        <div className="flex flex-wrap gap-3 border-b border-slate-200 pb-3">
+          <button
+              type="button"
+              onClick={() => setTab('entradas')}
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-base font-semibold cursor-pointer ${
+                  tab === 'entradas'
+                      ? 'bg-[#064c32] text-white'
+                      : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
+              }`}
+          >
+            <FileInput className="w-5 h-5" />
+            Notas de Entrada ({notas.length})
+          </button>
 
-            <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="mt-1.5 h-11 w-full rounded-xl border border-[#d8e1dd] bg-white px-3 text-sm text-[#20372e] outline-none focus:border-[#0b7549]"
-            >
-              <option value="all">Todas las operaciones</option>
-              <option value="ingreso">Ingresos (Compras, Donaciones)</option>
-              <option value="salida">Salidas (PECOSA despachos)</option>
-              <option value="transferencia">Transferencias Internas</option>
-              <option value="devolucion">Devoluciones</option>
-              <option value="ajuste">Ajustes de Inventario</option>
-            </select>
-          </div>
-
-          <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-[#52635c]">
-            Almacén
-          </span>
-
-            <select
-                value={warehouseFilter}
-                onChange={(e) => setWarehouseFilter(e.target.value)}
-                className="mt-1.5 h-11 w-full rounded-xl border border-[#d8e1dd] bg-white px-3 text-sm text-[#20372e] outline-none focus:border-[#0b7549]"
-            >
-              <option value="all">Todos los almacenes</option>
-
-              {warehouses.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-[#52635c]">
-            Estado
-          </span>
-
-            <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="mt-1.5 h-11 w-full rounded-xl border border-[#d8e1dd] bg-white px-3 text-sm text-[#20372e] outline-none focus:border-[#0b7549]"
-            >
-              <option value="all">Todos los estados</option>
-              <option value="confirmado">Confirmados (Afectan stock)</option>
-              <option value="anulado">Anulados / Revertidos</option>
-              <option value="borrador">Borradores</option>
-            </select>
-          </div>
+          <button
+              type="button"
+              onClick={() => setTab('lotes')}
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-base font-semibold cursor-pointer ${
+                  tab === 'lotes'
+                      ? 'bg-[#064c32] text-white'
+                      : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
+              }`}
+          >
+            <Layers className="w-5 h-5" />
+            Lotes y Vencimientos ({lotes.length})
+          </button>
         </div>
 
-        {/* Tabla de Movimientos */}
-        <div className="overflow-hidden rounded-2xl border border-[#e0e8e4] bg-white shadow-[0_2px_10px_rgba(21,55,42,0.03)]">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#075c3b] font-bold text-white">
-              <tr>
-                <th className="py-3.5 pl-5 pr-3">Fecha y Hora</th>
-                <th className="py-3.5 px-3">Correlativo</th>
-                <th className="py-3.5 px-3">Tipo / Motivo</th>
-                <th className="py-3.5 px-3">Documento Sustento</th>
-                <th className="py-3.5 px-3">Almacén</th>
-                <th className="py-3.5 px-3">Destino / Proveedor</th>
-                <th className="py-3.5 px-3 text-center">Bienes</th>
-                <th className="py-3.5 px-3 text-right">Importe Total</th>
-                <th className="py-3.5 px-3 text-center">Estado</th>
-                <th className="py-3.5 pr-5 pl-3 text-center">Acciones</th>
-              </tr>
-              </thead>
-
-              <tbody className="divide-y divide-[#e8eeeb]">
-              {filteredMovements.length === 0 ? (
-                  <tr>
-                    <td
-                        colSpan={10}
-                        className="py-12 text-center text-[#78847f]"
+        {cargando ? (
+            <div className="bg-white rounded-2xl p-8 border border-slate-200 text-center text-lg text-slate-600">
+              Cargando información de almacén...
+            </div>
+        ) : (
+            <>
+              {/* TAB 1: NOTAS DE ENTRADA */}
+              {tab === 'entradas' && (
+                  <div className="space-y-8">
+                    <form
+                        onSubmit={registrarNea}
+                        className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-6"
                     >
-                      No se registran movimientos con los filtros aplicados.
-                    </td>
-                  </tr>
-              ) : (
-                  filteredMovements.map((m) => {
-                    const wh = warehouses.find((w) => w.id === m.warehouseId)
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 border-b border-slate-200 pb-4">
+                        <div>
+                          <h3 className="text-xl font-bold text-slate-900">Nueva Nota de Entrada a Almacén (NEA)</h3>
+                          <p className="text-sm text-slate-500">
+                            Deja el Nº NEA vacío si deseas que el sistema genere el correlativo automático (ej. NEA-001-2026).
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm text-slate-500 block">Total del Ingreso</span>
+                          <span className="text-2xl font-bold text-[#064c32]">S/ {totalFormulario.toFixed(2)}</span>
+                        </div>
+                      </div>
 
-                    const targetWh = m.targetWarehouseId
-                        ? warehouses.find((w) => w.id === m.targetWarehouseId)
-                        : null
+                      {/* Datos de cabecera */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                          <label className="block text-base font-medium text-slate-700 mb-1">Nº NEA (Opcional)</label>
+                          <input
+                              type="text"
+                              placeholder="Auto (NEA-001-2026)"
+                              value={cabecera.numeroNea}
+                              onChange={(e) => setCabecera({ ...cabecera, numeroNea: e.target.value })}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-base font-medium text-slate-700 mb-1">Fecha de Emisión *</label>
+                          <input
+                              type="date"
+                              required
+                              value={cabecera.fechaEmision}
+                              onChange={(e) => setCabecera({ ...cabecera, fechaEmision: e.target.value })}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-base font-medium text-slate-700 mb-1">Proveedor (Catálogo)</label>
+                          <select
+                              value={cabecera.idProveedor}
+                              onChange={(e) => handleCambioProveedor(e.target.value)}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base bg-white"
+                          >
+                            <option value="">Ninguno / Donación / Entidad externa</option>
+                            {proveedores.map((p) => (
+                                <option key={p.idProveedor} value={p.idProveedor}>
+                                  {p.ruc} — {p.razonSocial}
+                                </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-base font-medium text-slate-700 mb-1">Procedencia *</label>
+                          <input
+                              type="text"
+                              required
+                              placeholder="Ej. Proveedor o Municipalidad de Cañete"
+                              value={cabecera.procedencia}
+                              onChange={(e) => setCabecera({ ...cabecera, procedencia: e.target.value })}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-base font-medium text-slate-700 mb-1">Destino *</label>
+                          <input
+                              type="text"
+                              required
+                              value={cabecera.destino}
+                              onChange={(e) => setCabecera({ ...cabecera, destino: e.target.value })}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-base font-medium text-slate-700 mb-1">Referencia / Doc. Sustento</label>
+                          <input
+                              type="text"
+                              placeholder="Ej. Factura F001-230, O/C 045, Premio"
+                              value={cabecera.referencia}
+                              onChange={(e) => setCabecera({ ...cabecera, referencia: e.target.value })}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-base font-medium text-slate-700 mb-1">Modalidad</label>
+                          <input
+                              type="text"
+                              placeholder="Ej. Compra Directa, Donación, Adjudicación"
+                              value={cabecera.modalidad}
+                              onChange={(e) => setCabecera({ ...cabecera, modalidad: e.target.value })}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-base font-medium text-slate-700 mb-1">Observaciones</label>
+                          <input
+                              type="text"
+                              placeholder="Opcional"
+                              value={cabecera.observaciones}
+                              onChange={(e) => setCabecera({ ...cabecera, observaciones: e.target.value })}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base"
+                          />
+                        </div>
+                      </div>
 
-                    return (
-                        <tr
-                            key={m.id}
-                            className={`hover:bg-[#f7faf8] transition border-b border-[#e8eeeb] last:border-0 ${
-                                m.status === 'anulado'
-                                    ? 'bg-[#f0f1f0]/60 opacity-60 line-through'
-                                    : ''
-                            }`}
-                        >
-                          <td className="py-3.5 pl-5 pr-3 text-[#586860] whitespace-nowrap">
-                        <span className="font-semibold text-[#20372e]">
-                          {m.date}
-                        </span>
-                            <span className="text-[10px] text-[#78847f] block">
-                          {m.time}
-                        </span>
-                          </td>
-
-                          <td className="py-3.5 px-3 font-mono font-bold text-[#075c3b]">
-                            {m.correlative}
-                          </td>
-
-                          <td className="py-3.5 px-3">
-                        <span
-                            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-bold ${
-                                m.type === 'ingreso'
-                                    ? 'bg-[#dff1e4] text-[#08783f]'
-                                    : m.type === 'salida'
-                                        ? 'bg-[#ffe4e5] text-[#dc252d]'
-                                        : m.type === 'transferencia'
-                                            ? 'bg-[#e0f2fe] text-[#0369a1]'
-                                            : m.type === 'devolucion'
-                                                ? 'bg-[#fef3c7] text-[#92400e]'
-                                                : 'bg-[#ede9fe] text-[#6d28d9]'
-                            }`}
-                        >
-                          {m.type === 'ingreso' && (
-                              <ArrowUp className="size-3" />
-                          )}
-                          {m.type === 'salida' && (
-                              <ArrowDown className="size-3" />
-                          )}
-                          {m.type === 'transferencia' && (
-                              <ArrowLeftRight className="size-3" />
-                          )}
-                          {m.type === 'devolucion' && (
-                              <RotateCcw className="size-3" />
-                          )}
-
-                          {m.type.toUpperCase()}
-                        </span>
-
-                            <p className="text-[11px] text-[#687871] mt-0.5 max-w-[150px] truncate">
-                              {m.reason}
-                            </p>
-                          </td>
-
-                          <td className="py-3.5 px-3">
-                            <p className="font-semibold text-[#20372e]">
-                              {m.docType}
-                            </p>
-                            <p className="font-mono text-[11px] text-[#78847f]">
-                              {m.docNumber}
-                            </p>
-                          </td>
-
-                          <td className="py-3.5 px-3 text-[#20372e]">
-                            <p className="font-medium">{wh?.name}</p>
-
-                            {targetWh && (
-                                <span className="text-[10px] text-[#075c3b] block font-semibold">
-                            → {targetWh.name}
-                          </span>
-                            )}
-                          </td>
-
-                          <td className="py-3.5 px-3 max-w-[180px] truncate text-[#20372e]">
-                            <p className="font-medium">
-                              {m.recipient || m.responsible}
-                            </p>
-                            <p className="text-[10px] text-[#78847f]">
-                              Reg: {m.registeredBy}
-                            </p>
-                          </td>
-
-                          <td className="py-3.5 px-3 text-center">
-                        <span className="rounded-full bg-[#edf3f0] px-2.5 py-0.5 font-bold text-[#075c3b]">
-                          {m.items.length} ítems
-                        </span>
-                          </td>
-
-                          <td className="py-3.5 px-3 text-right font-bold text-[#20372e] whitespace-nowrap">
-                            S/{' '}
-                            {m.totalAmount.toLocaleString('es-PE', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </td>
-
-                          <td className="py-3.5 px-3 text-center">
-                        <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                m.status === 'confirmado'
-                                    ? 'bg-[#dff1e4] text-[#08783f]'
-                                    : m.status === 'anulado'
-                                        ? 'bg-[#ffe4e5] text-[#dc252d]'
-                                        : 'bg-[#fff0a8] text-[#17251d]'
-                            }`}
-                        >
-                          {m.status === 'confirmado'
-                              ? 'Confirmado'
-                              : m.status === 'anulado'
-                                  ? 'Anulado'
-                                  : 'Borrador'}
-                        </span>
-                          </td>
-
-                          <td className="py-3.5 pr-5 pl-3 text-center whitespace-nowrap">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                  type="button"
-                                  onClick={() => onPrintMovement(m)}
-                                  className="rounded-lg border border-[#d8e1dd] bg-white p-1.5 text-[#586860] hover:bg-[#edf3f0] hover:text-[#075c3b]"
-                                  title="Ver constancia / comprobante imprimible"
-                              >
-                                <Printer className="size-3.5" />
-                              </button>
-
-                              {m.status === 'confirmado' && (
-                                  <button
-                                      type="button"
-                                      onClick={() => handleOpenReversal(m)}
-                                      className="rounded-lg border border-[#fecdd3] bg-white p-1.5 text-[#dc252d] hover:bg-[#ffe4e5]"
-                                      title="Anular / Revertir movimiento"
-                                  >
-                                    <Ban className="size-3.5" />
-                                  </button>
-                              )}
+                      {/* Selector de productos + Escáner USB */}
+                      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                        <p className="text-base font-semibold text-slate-800">Agregar Bienes al Ingreso</p>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <ScanBarcode className="w-5 h-5 text-[#064c32] absolute left-3.5 top-3.5" />
+                              <input
+                                  type="text"
+                                  placeholder="Escanear código QR / barras y presionar Enter..."
+                                  value={codigoEscaner}
+                                  onChange={(e) => setCodigoEscaner(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleEscaner(e);
+                                  }}
+                                  className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-emerald-700/40 bg-white text-base"
+                              />
                             </div>
-                          </td>
-                        </tr>
-                    )
-                  })
-              )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                            <button
+                                type="button"
+                                onClick={handleEscaner}
+                                className="px-4 py-3 rounded-xl bg-emerald-700 text-white text-base font-semibold hover:bg-emerald-800 cursor-pointer"
+                            >
+                              Añadir
+                            </button>
+                          </div>
 
-        {/* Modal Confirmar Anulación / Reversión */}
-        {reversalModalOpen && activeMovement && (
-            <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-[#092d20]/60 p-4 backdrop-blur-xs"
-                onClick={() => setReversalModalOpen(false)}
-            >
-              <div
-                  className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-                  onClick={(e) => e.stopPropagation()}
-              >
-                <div className="mb-4 flex items-center justify-between border-b border-[#e5ebe8] pb-3">
-                  <div className="flex items-center gap-2 text-[#dc252d]">
-                    <AlertTriangle className="size-5" />
-                    <h3 className="text-lg font-bold text-[#20372e]">
-                      Anular Movimiento
-                    </h3>
+                          <div className="flex gap-2">
+                            <select
+                                value={productoSeleccionado}
+                                onChange={(e) => setProductoSeleccionado(e.target.value)}
+                                className="flex-1 px-4 py-3 rounded-xl border border-slate-300 bg-white text-base"
+                            >
+                              <option value="">O selecciona un bien manualmente...</option>
+                              {productos.map((p) => (
+                                  <option key={p.idProducto} value={p.idProducto}>
+                                    {p.codigoInterno} — {p.nombre} ({p.nombreUnidad})
+                                  </option>
+                              ))}
+                            </select>
+                            <button
+                                type="button"
+                                onClick={handleAgregarManual}
+                                className="inline-flex items-center gap-1.5 px-4 py-3 rounded-xl bg-[#064c32] text-white text-base font-semibold hover:bg-[#053b27] cursor-pointer"
+                            >
+                              <Plus className="w-5 h-5" /> Agregar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Tabla de detalle de la NEA */}
+                      <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                          <tr className="bg-slate-100 text-slate-700 text-sm uppercase">
+                            <th className="py-3 px-4">Bien</th>
+                            <th className="py-3 px-4 w-36">Cantidad *</th>
+                            <th className="py-3 px-4 w-40">Costo Unit. (S/) *</th>
+                            <th className="py-3 px-4 w-48">Fecha Vencimiento</th>
+                            <th className="py-3 px-4 w-36 text-right">Subtotal</th>
+                            <th className="py-3 px-4 w-16"></th>
+                          </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 text-base">
+                          {items.length === 0 ? (
+                              <tr>
+                                <td colSpan={6} className="py-6 text-center text-slate-500">
+                                  Aún no has agregado bienes a esta Nota de Entrada.
+                                </td>
+                              </tr>
+                          ) : (
+                              items.map((it) => {
+                                const sub = Number(it.cantidad || 0) * Number(it.costoUnitario || 0);
+                                return (
+                                    <tr key={it.idProducto}>
+                                      <td className="py-3 px-4">
+                                        <div className="font-semibold text-slate-900">{it.nombre}</div>
+                                        <div className="text-sm text-slate-500">
+                                          {it.codigoInterno} · {it.unidad}
+                                          {it.perecible && (
+                                              <span className="ml-2 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-semibold">
+                                      Perecible (exige fecha)
+                                    </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="py-3 px-4">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0.01"
+                                            required
+                                            value={it.cantidad}
+                                            onChange={(e) => actualizarItem(it.idProducto, 'cantidad', e.target.value)}
+                                            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-base"
+                                        />
+                                      </td>
+                                      <td className="py-3 px-4">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            required
+                                            value={it.costoUnitario}
+                                            onChange={(e) => actualizarItem(it.idProducto, 'costoUnitario', e.target.value)}
+                                            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-base"
+                                        />
+                                      </td>
+                                      <td className="py-3 px-4">
+                                        <input
+                                            type="date"
+                                            required={it.perecible}
+                                            value={it.fechaVencimiento}
+                                            onChange={(e) => actualizarItem(it.idProducto, 'fechaVencimiento', e.target.value)}
+                                            className={`w-full px-3 py-2 rounded-lg border text-base ${
+                                                it.perecible && !it.fechaVencimiento
+                                                    ? 'border-amber-500 bg-amber-50'
+                                                    : 'border-slate-300'
+                                            }`}
+                                        />
+                                      </td>
+                                      <td className="py-3 px-4 text-right font-semibold whitespace-nowrap">
+                                        S/ {sub.toFixed(2)}
+                                      </td>
+                                      <td className="py-3 px-4 text-right">
+                                        <button
+                                            type="button"
+                                            onClick={() => quitarItem(it.idProducto)}
+                                            className="p-2 rounded-lg text-red-600 hover:bg-red-50 cursor-pointer"
+                                            title="Quitar"
+                                        >
+                                          <Trash2 className="w-5 h-5" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                );
+                              })
+                          )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <button
+                            type="submit"
+                            disabled={guardando}
+                            className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-[#064c32] hover:bg-[#053b27] disabled:opacity-60 text-white text-lg font-semibold cursor-pointer"
+                        >
+                          <Plus className="w-5 h-5" />
+                          {guardando ? 'Registrando Ingreso...' : 'Registrar Nota de Entrada'}
+                        </button>
+                      </div>
+                    </form>
+
+                    {/* Historial de NEAs */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                      <div className="px-6 py-4 border-b border-slate-200">
+                        <h3 className="text-xl font-bold text-slate-900">Historial de Notas de Entrada</h3>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                          <tr className="bg-[#064c32] text-white text-sm uppercase">
+                            <th className="py-3.5 px-4">Nº NEA</th>
+                            <th className="py-3.5 px-4">Fecha</th>
+                            <th className="py-3.5 px-4">Procedencia / Referencia</th>
+                            <th className="py-3.5 px-4">Ítems</th>
+                            <th className="py-3.5 px-4 text-right">Total (S/)</th>
+                            <th className="py-3.5 px-4 text-right">Acciones</th>
+                          </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 text-base">
+                          {pagNotas.itemsPaginados.length === 0 ? (
+                              <tr>
+                                <td colSpan={6} className="py-8 text-center text-slate-500">
+                                  Aún no existen Notas de Entrada registradas.
+                                </td>
+                              </tr>
+                          ) : (
+                              pagNotas.itemsPaginados.map((n) => (
+                                  <tr key={n.idNotaEntrada} className="hover:bg-slate-50">
+                                    <td className="py-3.5 px-4 font-mono font-bold text-[#064c32] whitespace-nowrap">
+                                      {n.numeroNea}
+                                    </td>
+                                    <td className="py-3.5 px-4 whitespace-nowrap">{formatearFecha(n.fechaEmision)}</td>
+                                    <td className="py-3.5 px-4">
+                                      <div className="font-semibold">{n.procedencia}</div>
+                                      <div className="text-sm text-slate-500">{n.referencia || n.modalidad || '—'}</div>
+                                    </td>
+                                    <td className="py-3.5 px-4">{n.cantidadItems} lote(s)</td>
+                                    <td className="py-3.5 px-4 text-right font-bold whitespace-nowrap">
+                                      S/ {Number(n.totalValorizado).toFixed(2)}
+                                    </td>
+                                    <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
+                                      <button
+                                          type="button"
+                                          onClick={() => setNeaActiva(n)}
+                                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
+                                      >
+                                        <Eye className="w-4 h-4" /> Ver
+                                      </button>
+                                      <button
+                                          type="button"
+                                          onClick={() => imprimirNeaOficial(n)}
+                                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-emerald-700/40 text-[#064c32] text-sm font-semibold hover:bg-emerald-50 cursor-pointer"
+                                      >
+                                        <Printer className="w-4 h-4" /> Imprimir
+                                      </button>
+                                    </td>
+                                  </tr>
+                              ))
+                          )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <Paginacion
+                          paginaActual={pagNotas.paginaActual}
+                          totalPaginas={pagNotas.totalPaginas}
+                          totalRegistros={pagNotas.totalRegistros}
+                          porPagina={pagNotas.porPagina}
+                          desde={pagNotas.desde}
+                          hasta={pagNotas.hasta}
+                          onCambiarPagina={pagNotas.irAPagina}
+                          onCambiarPorPagina={pagNotas.cambiarPorPagina}
+                      />
+                    </div>
                   </div>
+              )}
 
+              {/* TAB 2: CONTROL DE LOTES Y VENCIMIENTOS */}
+              {tab === 'lotes' && (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-4 bg-white p-4 rounded-2xl border border-slate-200">
+                      <label className="flex items-center gap-2 text-base font-medium cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={soloConStock}
+                            onChange={(e) => {
+                              setSoloConStock(e.target.checked);
+                              pagLotes.reiniciarPagina();
+                            }}
+                            className="w-5 h-5 accent-[#064c32]"
+                        />
+                        Solo lotes con stock disponible
+                      </label>
+
+                      <label className="flex items-center gap-2 text-base font-medium cursor-pointer text-amber-800">
+                        <input
+                            type="checkbox"
+                            checked={soloPorVencer}
+                            onChange={(e) => {
+                              setSoloPorVencer(e.target.checked);
+                              pagLotes.reiniciarPagina();
+                            }}
+                            className="w-5 h-5 accent-amber-600"
+                        />
+                        <CalendarClock className="w-5 h-5" />
+                        Solo vencidos o por vencer (≤ 30 días)
+                      </label>
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                          <tr className="bg-[#064c32] text-white text-sm uppercase">
+                            <th className="py-3.5 px-4">Bien / Lote</th>
+                            <th className="py-3.5 px-4">NEA / Proveedor</th>
+                            <th className="py-3.5 px-4">Ingreso</th>
+                            <th className="py-3.5 px-4">Vencimiento</th>
+                            <th className="py-3.5 px-4 text-right">Restante / Inicial</th>
+                            <th className="py-3.5 px-4 text-right">Costo Unit.</th>
+                            <th className="py-3.5 px-4 text-right">Saldo (S/)</th>
+                          </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 text-base">
+                          {pagLotes.itemsPaginados.length === 0 ? (
+                              <tr>
+                                <td colSpan={7} className="py-8 text-center text-slate-500">
+                                  No hay lotes que coincidan con el filtro actual.
+                                </td>
+                              </tr>
+                          ) : (
+                              pagLotes.itemsPaginados.map((l) => {
+                                const badge = obtenerEstadoVencimiento(l);
+                                return (
+                                    <tr key={l.idLote} className="hover:bg-slate-50">
+                                      <td className="py-3.5 px-4">
+                                        <div className="font-semibold text-slate-900">{l.nombreProducto}</div>
+                                        <div className="text-sm text-slate-500 font-mono">
+                                          Lote #{l.idLote} · {l.codigoInterno}
+                                        </div>
+                                      </td>
+                                      <td className="py-3.5 px-4">
+                                        <div className="font-mono text-sm font-bold text-[#064c32]">
+                                          {l.numeroNea || l.documentoSustento || '—'}
+                                        </div>
+                                        <div className="text-sm text-slate-500">{l.proveedor || '—'}</div>
+                                      </td>
+                                      <td className="py-3.5 px-4 whitespace-nowrap">{formatearFecha(l.fechaIngreso)}</td>
+                                      <td className="py-3.5 px-4 whitespace-nowrap">
+                                        <div className="text-sm font-medium">{l.fechaVencimiento || '—'}</div>
+                                        <span
+                                            className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${badge.clase}`}
+                                        >
+                                  {badge.texto}
+                                </span>
+                                      </td>
+                                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                                        <span className="font-bold text-slate-900">{Number(l.cantidadRestante).toFixed(2)}</span>
+                                        <span className="text-slate-400"> / {Number(l.cantidadInicial).toFixed(2)}</span>
+                                      </td>
+                                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                                        S/ {Number(l.costoUnitario).toFixed(2)}
+                                      </td>
+                                      <td className="py-3.5 px-4 text-right font-bold text-[#064c32] whitespace-nowrap">
+                                        S/ {Number(l.valorizadoRestante).toFixed(2)}
+                                      </td>
+                                    </tr>
+                                );
+                              })
+                          )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <Paginacion
+                          paginaActual={pagLotes.paginaActual}
+                          totalPaginas={pagLotes.totalPaginas}
+                          totalRegistros={pagLotes.totalRegistros}
+                          porPagina={pagLotes.porPagina}
+                          desde={pagLotes.desde}
+                          hasta={pagLotes.hasta}
+                          onCambiarPagina={pagLotes.irAPagina}
+                          onCambiarPorPagina={pagLotes.cambiarPorPagina}
+                      />
+                    </div>
+                  </div>
+              )}
+            </>
+        )}
+
+        {/* Modal Detalle de NEA */}
+        {neaActiva && (
+            <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-xl space-y-5 max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                  <div>
+                    <h3 className="text-2xl font-bold text-[#064c32]">Nota de Entrada Nº {neaActiva.numeroNea}</h3>
+                    <p className="text-sm text-slate-500">
+                      Fecha: {formatearFecha(neaActiva.fechaEmision)} · Responsable: {neaActiva.responsableNombre}
+                    </p>
+                  </div>
                   <button
-                      onClick={() => setReversalModalOpen(false)}
-                      className="rounded-lg p-1 text-[#78847f] hover:bg-[#f0f1f0]"
+                      type="button"
+                      onClick={() => setNeaActiva(null)}
+                      className="p-2 rounded-lg hover:bg-slate-100 cursor-pointer"
                   >
-                    <X className="size-5" />
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                <form onSubmit={handleConfirmReversal} className="space-y-4">
-                  <div className="rounded-xl border border-[#fecdd3] bg-[#fff1f2] p-3.5 text-xs text-[#9f1239] leading-relaxed">
-                    <p className="font-bold">
-                      Principio de Inmutabilidad de Almacén:
-                    </p>
-                    Los movimientos confirmados no se eliminan físicamente. La
-                    anulación generará un movimiento de contra-asiento vinculado a{' '}
-                    <strong>{activeMovement.correlative}</strong>, restituyendo las
-                    existencias y registrando la operación en la bitácora de
-                    auditoría.
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-base bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div><strong>Procedencia:</strong> {neaActiva.procedencia}</div>
+                  <div><strong>Destino:</strong> {neaActiva.destino}</div>
+                  <div><strong>Referencia:</strong> {neaActiva.referencia || '—'}</div>
+                  <div><strong>Modalidad:</strong> {neaActiva.modalidad || '—'}</div>
+                </div>
+
+                <table className="w-full text-left border-collapse text-base">
+                  <thead>
+                  <tr className="bg-[#064c32] text-white text-sm">
+                    <th className="py-2.5 px-3">Código</th>
+                    <th className="py-2.5 px-3">Bien / Cuenta</th>
+                    <th className="py-2.5 px-3 text-right">Cant.</th>
+                    <th className="py-2.5 px-3 text-right">P. Unit.</th>
+                    <th className="py-2.5 px-3 text-right">Subtotal</th>
+                  </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                  {neaActiva.items.map((it) => (
+                      <tr key={it.idLote}>
+                        <td className="py-2.5 px-3 font-mono text-sm">{it.codigoInterno}</td>
+                        <td className="py-2.5 px-3">
+                          <div className="font-semibold">{it.nombreProducto}</div>
+                          <div className="text-xs text-slate-500">
+                            Cta. {it.codigoCuenta || '—'} · {it.unidadMedida}
+                            {it.fechaVencimiento ? ` · Vence: ${it.fechaVencimiento}` : ''}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 text-right">{Number(it.cantidadInicial).toFixed(2)}</td>
+                        <td className="py-2.5 px-3 text-right">S/ {Number(it.costoUnitario).toFixed(2)}</td>
+                        <td className="py-2.5 px-3 text-right font-semibold">S/ {Number(it.subtotal).toFixed(2)}</td>
+                      </tr>
+                  ))}
+                  </tbody>
+                </table>
+
+                <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                  <div className="text-xl font-bold text-[#064c32]">
+                    Total Valorizado: S/ {Number(neaActiva.totalValorizado).toFixed(2)}
                   </div>
-
-                  <label className="block text-xs font-bold text-[#52635c]">
-                    Motivo Obligatorio de Anulación *
-                    <textarea
-                        required
-                        rows={3}
-                        value={reversalReason}
-                        onChange={(e) => setReversalReason(e.target.value)}
-                        placeholder="Ej. Error en la cantidad despachada según informe del responsable..."
-                        className="mt-1.5 w-full rounded-xl border border-[#d8e1dd] p-2.5 text-xs text-[#20372e] outline-none focus:border-[#dc252d]"
-                    />
-                  </label>
-
-                  <div className="flex justify-end gap-2.5 pt-3 border-t border-[#e5ebe8]">
+                  <div className="flex gap-3">
                     <button
                         type="button"
-                        onClick={() => setReversalModalOpen(false)}
-                        className="rounded-xl border border-[#d8e1dd] px-4 py-2.5 text-xs font-bold text-[#52635c] hover:bg-[#f0f1f0]"
+                        onClick={() => imprimirNeaOficial(neaActiva)}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#064c32] text-white text-base font-semibold hover:bg-[#053b27] cursor-pointer"
                     >
-                      Cancelar
+                      <Printer className="w-5 h-5" /> Imprimir NEA
                     </button>
-
                     <button
-                        type="submit"
-                        disabled={!reversalReason.trim()}
-                        className="rounded-xl bg-[#dc252d] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#b91c1c] disabled:opacity-50"
+                        type="button"
+                        onClick={() => setNeaActiva(null)}
+                        className="px-5 py-2.5 rounded-xl border border-slate-300 text-base font-medium cursor-pointer"
                     >
-                      Confirmar Reversión
+                      Cerrar
                     </button>
                   </div>
-                </form>
+                </div>
               </div>
             </div>
         )}
       </div>
-  )
+  );
 }
-
-export default MovimientosView

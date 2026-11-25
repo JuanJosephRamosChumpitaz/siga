@@ -1,19 +1,17 @@
-
-import React, { useMemo } from 'react';
-
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle,
-  ArrowDown,
-  ArrowRight,
-  ArrowUp,
-  Boxes,
-  Clock,
-  DollarSign,
-  FileCheck,
   Package,
+  DollarSign,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  AlertTriangle,
+  PackageX,
+  CalendarClock,
+  FileSignature,
   Plus,
+  AlertCircle,
 } from 'lucide-react';
-
 import {
   ResponsiveContainer,
   BarChart,
@@ -21,702 +19,268 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  CartesianGrid,
   Legend,
-  PieChart,
-  Pie,
-  Cell,
 } from 'recharts';
+import { useAuth } from '../context/auth';
+import { reporteService } from '../services/reporteService';
 
-// Ajusta estas rutas si tus servicios tienen otra ubicación.
-import { InventoryService } from '../services/inventoryService';
+export default function DashboardView() {
+  const { usuario } = useAuth();
+  const navigate = useNavigate();
+  const [resumen, setResumen] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
 
-const COLORS = [
-  '#075c3b',
-  '#0b7549',
-  '#f5db38',
-  '#166534',
-  '#dc252d',
-  '#0891b2',
-];
+  useEffect(() => {
+    reporteService
+        .obtenerDashboard()
+        .then((data) => setResumen(data))
+        .catch((err) => setError(err.response?.data?.message || 'No se pudo cargar el panel principal.'))
+        .finally(() => setCargando(false));
+  }, []);
 
-export function DashboardView({
-                                state,
-                                onNavigate,
-                                onOpenNewMovement,
-                              }) {
-  const {
-    products,
-    movements,
-    warehouses,
-    requisitions,
-    accounts,
-  } = state;
+  const rol = (resumen?.rol || usuario?.rol || 'SOLICITANTE').toUpperCase();
+  const esSolicitante = rol === 'SOLICITANTE';
+  const gestionaAlmacen = rol === 'ADMIN' || rol === 'ALMACENERO';
 
-  // Total de productos activos
-  const activeProducts = products.filter(
-      (p) => p.status === 'activo'
-  );
-
-  // Valor total del inventario
-  const totalValuation = useMemo(() => {
-    return products.reduce((sum, p) => {
-      const { totalValue } =
-          InventoryService.getProductTotalStock(p);
-
-      return sum + totalValue;
-    }, 0);
-  }, [products]);
-
-  // Productos bajo stock mínimo
-  const lowStockProducts = useMemo(() => {
-    return products.filter((p) => {
-      const { stock } =
-          InventoryService.getProductTotalStock(p);
-
-      return stock <= p.minStock && stock > 0;
-    });
-  }, [products]);
-
-  // Productos sin stock
-  const outOfStockProducts = useMemo(() => {
-    return products.filter((p) => {
-      const { stock } =
-          InventoryService.getProductTotalStock(p);
-
-      return stock <= 0;
-    });
-  }, [products]);
-
-  // Ingresos del mes
-  const currentMonthEntries = useMemo(() => {
-    return movements
-        .filter(
-            (m) =>
-                m.type === 'ingreso' &&
-                m.status === 'confirmado'
-        )
-        .reduce((sum, m) => sum + m.totalAmount, 0);
-  }, [movements]);
-
-  // Salidas del mes
-  const currentMonthExits = useMemo(() => {
-    return movements
-        .filter(
-            (m) =>
-                m.type === 'salida' &&
-                m.status === 'confirmado'
-        )
-        .reduce((sum, m) => sum + m.totalAmount, 0);
-  }, [movements]);
-
-  // Solicitudes pendientes
-  const pendingRequisitions = requisitions.filter(
-      (r) =>
-          r.status === 'pendiente' ||
-          r.status === 'aprobada' ||
-          r.status === 'atendida_parcial'
-  );
-
-  // Datos para gráfico de evolución mensual
-  const monthlyChartData = [
-    { mes: 'Ago 2026', ingresos: 31900, salidas: 6120 },
-    { mes: 'Set 2026', ingresos: 14200, salidas: 11800 },
-    {
-      mes: 'Oct 2026',
-      ingresos: currentMonthEntries,
-      salidas: currentMonthExits,
-    },
-  ];
-
-  // Distribución por cuenta contable
-  const accountDistributionData = useMemo(() => {
-    const rootAccounts = accounts.filter(
-        (a) => a.parentId === null
+  if (cargando) {
+    return (
+        <div className="bg-white rounded-2xl p-10 border border-slate-200 text-center text-lg text-slate-600">
+          Cargando indicadores en tiempo real...
+        </div>
     );
-
-    return rootAccounts.map((root) => {
-      const descendantIds =
-          InventoryService.getDescendantAccountIds(
-              root.id,
-              accounts
-          );
-
-      const matchingProds = products.filter((p) =>
-          descendantIds.includes(p.accountId)
-      );
-
-      const val = matchingProds.reduce((sum, p) => {
-        return (
-            sum +
-            InventoryService.getProductTotalStock(p).totalValue
-        );
-      }, 0);
-
-      return {
-        name: root.name,
-        code: root.code,
-        value: Math.round(val),
-      };
-    });
-  }, [accounts, products]);
-
-  // Almacenes bloqueados por inventario
-  const lockedWarehouses = warehouses.filter(
-      (w) => w.isLockedForInventory
-  );
+  }
 
   return (
       <div className="space-y-6">
-
-        {/* Banner Verde Institucional */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#064c32] via-[#075c3b] to-[#0a734a] p-6 text-white shadow-md md:p-8">
-
-          <div className="relative z-10 flex flex-col justify-between gap-6 md:flex-row md:items-center">
-
-            <div className="max-w-2xl">
-
-              <div className="flex flex-wrap items-center gap-2">
-
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur">
-                <span className="size-2 rounded-full bg-[#d6ed39] animate-pulse" />
-                Periodo Académico y Fiscal 2026
-              </span>
-
-                <span className="text-xs text-white/80">
-                • Valuación: Promedio Ponderado Móvil
-              </span>
-
-              </div>
-
-              <h1 className="mt-2 text-2xl font-bold tracking-tight md:text-3xl">
-                Panel de Control - Almacén Central
-              </h1>
-
-              <p className="mt-1 text-sm text-white/80 leading-relaxed md:text-base">
-                {state.settings.institutionName} • Control patrimonial,
-                entradas, salidas y kardex físico valorizado.
-              </p>
-
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-
-              <button
-                  onClick={onOpenNewMovement}
-                  className="flex items-center gap-2 rounded-xl bg-[#f5db38] px-5 py-3.5 text-sm font-bold text-[#123b2b] shadow-sm transition hover:bg-[#e6cc29]"
-              >
-                <Plus className="size-5" />
-                Nuevo Movimiento
-              </button>
-
-              <button
-                  onClick={() => onNavigate('solicitudes')}
-                  className="flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
-              >
-                <FileCheck className="size-4" />
-                Solicitudes PECOSA ({pendingRequisitions.length})
-              </button>
-
-            </div>
-          </div>
-        </div>
-
-        {/* Alerta de Almacén Bloqueado */}
-        {lockedWarehouses.length > 0 && (
-            <div className="flex items-center justify-between rounded-xl border-l-4 border-[#dc252d] bg-[#ffe4e5] p-4 text-[#dc252d] shadow-sm">
-
-              <div className="flex items-center gap-3">
-
-                <AlertTriangle className="size-5 shrink-0" />
-
-                <p className="text-sm font-medium">
-                  <strong>Atención:</strong> El almacén{' '}
-                  <strong>
-                    {lockedWarehouses.map((w) => w.name).join(', ')}
-                  </strong>{' '}
-                  tiene una sesión de toma de inventario en curso.
-                  Las operaciones están bloqueadas hasta su conciliación.
-                </p>
-
-              </div>
-
-              <button
-                  onClick={() => onNavigate('inventario')}
-                  className="text-xs font-bold underline hover:text-[#991b1b]"
-              >
-                Ir a Inventario Físico →
-              </button>
-
+        {error && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-base">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <span>{error}</span>
             </div>
         )}
 
-        {/* KPI Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
-          {/* Total Productos */}
-          <div
-              onClick={() => onNavigate('productos')}
-              className="cursor-pointer flex items-center gap-4 rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)] transition hover:border-[#075c3b]/40 hover:shadow-md"
-          >
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[#edf3f0] text-[#075c3b]">
-              <Boxes className="size-7" />
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#65736c]">
-                Total Productos
-              </p>
-
-              <p className="mt-0.5 text-2xl font-bold text-[#20372e]">
-                {activeProducts.length} ítems
-              </p>
-
-              <span className="text-xs text-[#08783f] font-medium">
-              En catálogo activo →
-            </span>
-            </div>
+        {/* Encabezado institucional */}
+        <div className="bg-[#064c32] text-white rounded-2xl p-6 md:p-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 shadow-sm">
+          <div>
+          <span className="inline-block px-3 py-1 rounded-full bg-emerald-800/80 text-emerald-100 text-xs font-semibold tracking-wide mb-2">
+            IESTP CAÑETE · VALUACIÓN PEPS (PRIMERAS ENTRADAS, PRIMERAS SALIDAS)
+          </span>
+            <h2 className="text-3xl font-bold">
+              {esSolicitante
+                  ? `Panel de Área — ${resumen?.nombreArea || usuario?.nombreArea}`
+                  : 'Panel de Control — Almacén Central'}
+            </h2>
+            <p className="text-emerald-100 text-base mt-1">
+              {esSolicitante
+                  ? 'Emite nuevas solicitudes PECOSA y haz seguimiento al estado de firmas y despacho de tu área.'
+                  : 'Control patrimonial, ingresos NEA, salidas PECOSA con 4 firmas y Kardex físico valorizado.'}
+            </p>
           </div>
 
-          {/* Valor Total Inventario */}
-          <div
-              onClick={() => onNavigate('reportes')}
-              className="cursor-pointer flex items-center gap-4 rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)] transition hover:border-[#075c3b]/40 hover:shadow-md"
-          >
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[#dff1e4] text-[#08783f]">
-              <DollarSign className="size-7" />
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#65736c]">
-                Valorización Total
-              </p>
-
-              <p className="mt-0.5 text-2xl font-bold text-[#08783f]">
-                S/ {totalValuation.toLocaleString('es-PE', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-              </p>
-
-              <span className="text-xs text-[#65736c]">
-              Costo promedio →
-            </span>
-            </div>
-          </div>
-
-          {/* Ingresos del Mes */}
-          <div
-              onClick={() =>
-                  onNavigate('movimientos', { type: 'ingreso' })
-              }
-              className="cursor-pointer flex items-center gap-4 rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)] transition hover:border-[#075c3b]/40 hover:shadow-md"
-          >
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[#e6f4ea] text-[#0b7549]">
-              <ArrowUp className="size-7" />
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#65736c]">
-                Ingresos del Mes
-              </p>
-
-              <p className="mt-0.5 text-2xl font-bold text-[#0b7549]">
-                S/ {currentMonthEntries.toLocaleString('es-PE', {
-                minimumFractionDigits: 2,
-              })}
-              </p>
-
-              <span className="text-xs text-[#65736c]">
-              Compras y donaciones →
-            </span>
-            </div>
-          </div>
-
-          {/* Salidas PECOSA */}
-          <div
-              onClick={() =>
-                  onNavigate('movimientos', { type: 'salida' })
-              }
-              className="cursor-pointer flex items-center gap-4 rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)] transition hover:border-[#075c3b]/40 hover:shadow-md"
-          >
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[#ffe4e5] text-[#dc252d]">
-              <ArrowDown className="size-7" />
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#65736c]">
-                Salidas PECOSA
-              </p>
-
-              <p className="mt-0.5 text-2xl font-bold text-[#dc252d]">
-                S/ {currentMonthExits.toLocaleString('es-PE', {
-                minimumFractionDigits: 2,
-              })}
-              </p>
-
-              <span className="text-xs text-[#65736c]">
-              Despachos a dependencias →
-            </span>
-            </div>
-          </div>
-
-        </div>
-
-        {/* Alertas Rápidas */}
-        <div className="grid gap-4 sm:grid-cols-3">
-
-          <div
-              onClick={() =>
-                  onNavigate('productos', { filter: 'low' })
-              }
-              className="flex cursor-pointer items-center justify-between rounded-2xl border border-[#e0e8e4] bg-white p-4 shadow-[0_2px_10px_rgba(21,55,42,0.03)] transition hover:border-[#dc252d]/40"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-[#ffe4e5] text-[#dc252d]">
-                <AlertTriangle className="size-5" />
-              </div>
-
-              <div>
-                <p className="text-xs font-bold text-[#65736c]">
-                  Stock Crítico / Mínimo
-                </p>
-
-                <p className="text-lg font-bold text-[#dc252d]">
-                  {lowStockProducts.length} productos
-                </p>
-              </div>
-            </div>
-
-            <ArrowRight className="size-4 text-[#dc252d]" />
-          </div>
-
-          <div
-              onClick={() =>
-                  onNavigate('productos', { filter: 'out' })
-              }
-              className="flex cursor-pointer items-center justify-between rounded-2xl border border-[#e0e8e4] bg-white p-4 shadow-[0_2px_10px_rgba(21,55,42,0.03)] transition hover:border-[#dc252d]/40"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-[#f0f1f0] text-[#69736f]">
-                <Package className="size-5" />
-              </div>
-
-              <div>
-                <p className="text-xs font-bold text-[#65736c]">
-                  Sin Existencias (Agotados)
-                </p>
-
-                <p className="text-lg font-bold text-[#20372e]">
-                  {outOfStockProducts.length} productos
-                </p>
-              </div>
-            </div>
-
-            <ArrowRight className="size-4 text-[#69736f]" />
-          </div>
-
-          <div
-              onClick={() => onNavigate('solicitudes')}
-              className="flex cursor-pointer items-center justify-between rounded-2xl border border-[#e0e8e4] bg-white p-4 shadow-[0_2px_10px_rgba(21,55,42,0.03)] transition hover:border-[#075c3b]/40"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-[#dff1e4] text-[#08783f]">
-                <Clock className="size-5" />
-              </div>
-
-              <div>
-                <p className="text-xs font-bold text-[#65736c]">
-                  Solicitudes PECOSA
-                </p>
-
-                <p className="text-lg font-bold text-[#08783f]">
-                  {pendingRequisitions.length} en proceso
-                </p>
-              </div>
-            </div>
-
-            <ArrowRight className="size-4 text-[#08783f]" />
-          </div>
-
-        </div>
-
-        {/* Gráficos */}
-        <div className="grid gap-6 lg:grid-cols-12">
-
-          {/* Gráfico de Barras */}
-          <div className="rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)] lg:col-span-7">
-
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="font-bold text-[#20372e] text-base">
-                  Evolución de Movimientos Valorizados
-                </h2>
-
-                <p className="text-xs text-[#78847f]">
-                  Comparativa de compras vs despachos
-                </p>
-              </div>
-
-              <span className="rounded-md bg-[#edf3f0] px-2 py-1 text-xs font-semibold text-[#075c3b]">
-              En Soles (S/.)
-            </span>
-            </div>
-
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                    data={monthlyChartData}
-                    margin={{
-                      top: 10,
-                      right: 10,
-                      left: 0,
-                      bottom: 0,
-                    }}
+          <div className="flex flex-wrap gap-3">
+            {gestionaAlmacen && (
+                <button
+                    type="button"
+                    onClick={() => navigate('/movimientos')}
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-lime-400 hover:bg-lime-300 text-[#064c32] text-base font-bold cursor-pointer"
                 >
-                  <XAxis
-                      dataKey="mes"
-                      tick={{ fontSize: 12, fill: '#586860' }}
-                  />
-
-                  <YAxis
-                      tick={{ fontSize: 12, fill: '#586860' }}
-                  />
-
-                  <Tooltip
-                      formatter={(value) => [
-                        `S/ ${Number(value).toLocaleString('es-PE', {
-                          minimumFractionDigits: 2,
-                        })}`,
-                        '',
-                      ]}
-                  />
-
-                  <Legend
-                      wrapperStyle={{ fontSize: '12px' }}
-                  />
-
-                  <Bar
-                      dataKey="ingresos"
-                      name="Ingresos (S/)"
-                      fill="#075c3b"
-                      radius={[4, 4, 0, 0]}
-                  />
-
-                  <Bar
-                      dataKey="salidas"
-                      name="Salidas PECOSA (S/)"
-                      fill="#dc252d"
-                      radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-          </div>
-
-          {/* Gráfico Circular */}
-          <div className="rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)] lg:col-span-5">
-
-            <div className="mb-2">
-              <h2 className="font-bold text-[#20372e] text-base">
-                Valor por Agrupación Contable
-              </h2>
-
-              <p className="text-xs text-[#78847f]">
-                Distribución porcentual del inventario
-              </p>
-            </div>
-
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                      data={accountDistributionData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={75}
-                      dataKey="value"
-                      label={({ code, percent }) =>
-                          `${code}: ${(percent * 100).toFixed(0)}%`
-                      }
-                  >
-                    {accountDistributionData.map((_, index) => (
-                        <Cell
-                            key={`cell-${index}`}
-                            fill={COLORS[index % COLORS.length]}
-                        />
-                    ))}
-                  </Pie>
-
-                  <Tooltip
-                      formatter={(val) => [
-                        `S/ ${Number(val).toLocaleString('es-PE', {
-                          minimumFractionDigits: 2,
-                        })}`,
-                        'Valor',
-                      ]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
+                  <Plus className="w-5 h-5" /> Nueva Entrada (NEA)
+                </button>
+            )}
+            <button
+                type="button"
+                onClick={() => navigate('/solicitudes')}
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white text-base font-semibold cursor-pointer"
+            >
+              <FileSignature className="w-5 h-5" />
+              {esSolicitante
+                  ? `Mis PECOSAs (${resumen?.pecosasEnProcesoTotal ?? 0})`
+                  : `Por Firmar / Despachar (${resumen?.pecosasPendientesAccion ?? 0})`}
+            </button>
           </div>
         </div>
 
-        {/* Últimos Movimientos y Alertas de Stock */}
-        <div className="grid gap-6 lg:grid-cols-12">
-
-          {/* Últimos Movimientos */}
-          <div className="rounded-2xl border border-[#e0e8e4] bg-white shadow-[0_2px_10px_rgba(21,55,42,0.03)] lg:col-span-8">
-
-            <div className="flex items-center justify-between border-b border-[#e5ebe8] p-4 md:p-5">
-
-              <div>
-                <h3 className="font-bold text-[#20372e] text-base">
-                  Últimos Movimientos Confirmados
-                </h3>
-
-                <p className="text-xs text-[#78847f]">
-                  Registro de ingresos y despachos recientes
-                </p>
-              </div>
-
+        {/* Vista simplificada para Áreas Solicitantes */}
+        {esSolicitante ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <button
-                  onClick={() => onNavigate('movimientos')}
-                  className="text-xs font-bold text-[#075c3b] hover:underline"
+                  type="button"
+                  onClick={() => navigate('/solicitudes')}
+                  className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm text-left hover:border-[#064c32] transition-colors cursor-pointer"
               >
-                Ver todos →
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold uppercase text-slate-500">PECOSAs de tu Área en Proceso</span>
+                  <FileSignature className="w-7 h-7 text-[#064c32]" />
+                </div>
+                <p className="text-4xl font-bold text-slate-900 mt-3">{resumen?.pecosasEnProcesoTotal ?? 0}</p>
+                <p className="text-base text-emerald-700 font-medium mt-2">
+                  Ir a bandeja de PECOSAs y estado de las 4 firmas →
+                </p>
               </button>
 
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold uppercase text-slate-500">Bienes Activos en Almacén</span>
+                  <Package className="w-7 h-7 text-[#064c32]" />
+                </div>
+                <p className="text-4xl font-bold text-slate-900 mt-3">{resumen?.totalProductosActivos ?? 0}</p>
+                <p className="text-base text-slate-600 mt-2">
+                  Disponibles para solicitar en tu próximo pedido PECOSA.
+                </p>
+              </div>
             </div>
+        ) : (
+            <>
+              {/* KPIs principales para ADMIN / ALMACENERO / ABASTECIMIENTO */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase text-slate-500">Total Bienes Activos</span>
+                    <Package className="w-6 h-6 text-[#064c32]" />
+                  </div>
+                  <p className="text-3xl font-bold text-slate-900 mt-2">{resumen?.totalProductosActivos ?? 0} ítems</p>
+                  <p className="text-sm text-slate-500 mt-1">Catálogo institucional</p>
+                </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase text-slate-500">Valorización Total (PEPS)</span>
+                    <DollarSign className="w-6 h-6 text-[#064c32]" />
+                  </div>
+                  <p className="text-3xl font-bold text-[#064c32] mt-2">
+                    S/ {Number(resumen?.valorizacionTotalPeps ?? 0).toFixed(2)}
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">Saldo vigente por lotes</p>
+                </div>
 
-                <thead className="bg-[#f8faf9] text-[#586860] uppercase tracking-wider font-semibold border-b border-[#edf2ef]">
-                <tr>
-                  <th className="px-4 py-3 pl-5">Fecha</th>
-                  <th className="px-4 py-3">Correlativo</th>
-                  <th className="px-4 py-3">Tipo</th>
-                  <th className="px-4 py-3">Destino / Proveedor</th>
-                  <th className="px-4 py-3 text-right pr-5">
-                    Importe
-                  </th>
-                </tr>
-                </thead>
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase text-slate-500">Ingresos del Mes</span>
+                    <ArrowDownCircle className="w-6 h-6 text-emerald-700" />
+                  </div>
+                  <p className="text-3xl font-bold text-slate-900 mt-2">
+                    S/ {Number(resumen?.ingresosMes ?? 0).toFixed(2)}
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">Notas de Entrada (NEA)</p>
+                </div>
 
-                <tbody className="divide-y divide-[#edf2ef]">
-                {movements.slice(0, 5).map((m) => (
-                    <tr
-                        key={m.id}
-                        className="hover:bg-[#f7faf8] transition"
-                    >
-                      <td className="px-4 py-3 pl-5 text-[#586860]">
-                        {m.date}
-                      </td>
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase text-slate-500">Salidas del Mes</span>
+                    <ArrowUpCircle className="w-6 h-6 text-red-600" />
+                  </div>
+                  <p className="text-3xl font-bold text-slate-900 mt-2">
+                    S/ {Number(resumen?.salidasMes ?? 0).toFixed(2)}
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">Despachos PECOSA</p>
+                </div>
+              </div>
 
-                      <td className="px-4 py-3 font-semibold text-[#20372e]">
-                        {m.correlative}
-                      </td>
+              {/* Alertas operativas */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <button
+                    type="button"
+                    onClick={() => navigate('/solicitudes')}
+                    className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3 text-left hover:bg-amber-100/70 cursor-pointer"
+                >
+                  <FileSignature className="w-7 h-7 text-amber-700 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">Pendientes de tu Acción</p>
+                    <p className="text-2xl font-bold text-amber-800">{resumen?.pecosasPendientesAccion ?? 0} PECOSA(s)</p>
+                  </div>
+                </button>
 
-                      <td className="px-4 py-3">
-                      <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-bold ${
-                              m.type === 'ingreso'
-                                  ? 'bg-[#dff1e4] text-[#08783f]'
-                                  : m.type === 'salida'
-                                      ? 'bg-[#ffe4e5] text-[#dc252d]'
-                                      : 'bg-[#edf3f0] text-[#075c3b]'
-                          }`}
-                      >
-                        {m.type === 'ingreso'
-                            ? '▲ Entrada'
-                            : '▼ Salida'}
-                      </span>
-                      </td>
+                <button
+                    type="button"
+                    onClick={() => navigate('/reportes')}
+                    className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3 text-left hover:bg-red-100/70 cursor-pointer"
+                >
+                  <AlertTriangle className="w-7 h-7 text-red-700 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-red-900">Stock Crítico / Mínimo</p>
+                    <p className="text-2xl font-bold text-red-700">{resumen?.stockCriticoCount ?? 0} bien(es)</p>
+                  </div>
+                </button>
 
-                      <td className="px-4 py-3 text-[#586860] max-w-[160px] truncate">
-                        {m.recipient || m.responsible}
-                      </td>
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
+                  <PackageX className="w-7 h-7 text-slate-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">Sin Existencias</p>
+                    <p className="text-2xl font-bold text-slate-900">{resumen?.sinExistenciasCount ?? 0} bien(es)</p>
+                  </div>
+                </div>
 
-                      <td className="px-4 py-3 text-right pr-5 font-bold text-[#20372e]">
-                        S/ {m.totalAmount.toLocaleString('es-PE', {
-                        minimumFractionDigits: 2,
-                      })}
-                      </td>
-                    </tr>
-                ))}
-                </tbody>
+                <button
+                    type="button"
+                    onClick={() => navigate(gestionaAlmacen ? '/movimientos' : '/reportes')}
+                    className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3 text-left hover:border-amber-400 cursor-pointer"
+                >
+                  <CalendarClock className="w-7 h-7 text-amber-600 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">Lotes por Vencer (≤30d)</p>
+                    <p className="text-2xl font-bold text-slate-900">{resumen?.lotesPorVencerCount ?? 0} lote(s)</p>
+                  </div>
+                </button>
+              </div>
 
-              </table>
-            </div>
+              {/* Gráficos y distribución contable reales */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <div className="xl:col-span-2 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                  <h3 className="text-xl font-bold text-slate-900">Evolución de Movimientos Valorizados (S/)</h3>
+                  <p className="text-sm text-slate-500 mb-4">Ingresos NEA vs. Salidas PECOSA en los últimos 6 meses</p>
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={resumen?.evolucionMensual || []}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis dataKey="mes" />
+                        <YAxis />
+                        <Tooltip formatter={(val) => `S/ ${Number(val).toFixed(2)}`} />
+                        <Legend />
+                        <Bar dataKey="ingresos" name="Ingresos (S/)" fill="#064c32" radius={[6, 6, 0, 0]} />
+                        <Bar dataKey="salidas" name="Salidas (S/)" fill="#dc2626" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
 
-          </div>
-
-          {/* Productos con Stock Bajo */}
-          <div className="rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)] lg:col-span-4">
-
-            <div className="mb-4 flex items-center justify-between border-b border-[#e5ebe8] pb-3">
-
-              <h3 className="font-bold text-[#20372e] text-sm">
-                Productos en Stock Bajo
-              </h3>
-
-              <span className="rounded-full bg-[#ffe4e5] px-2.5 py-0.5 text-xs font-bold text-[#dc252d]">
-              {lowStockProducts.length}
-            </span>
-
-            </div>
-
-            <div className="space-y-3">
-
-              {lowStockProducts.slice(0, 4).map((p) => {
-                const { stock } =
-                    InventoryService.getProductTotalStock(p);
-
-                return (
-                    <div
-                        key={p.id}
-                        onClick={() =>
-                            onNavigate('kardex', { productId: p.id })
-                        }
-                        className="cursor-pointer rounded-xl border border-[#f1f4f2] bg-[#fbfdfc] p-3 transition hover:border-[#075c3b]/30"
-                    >
-
-                      <div className="flex items-center justify-between">
-
-                        <p className="font-semibold text-xs text-[#20372e] line-clamp-1">
-                          {p.name}
-                        </p>
-
-                        <span className="text-xs font-bold text-[#dc252d]">
-                      {stock} / {p.minStock} {p.unit}
-                    </span>
-
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                  <h3 className="text-xl font-bold text-slate-900">Valor por Cuenta Contable</h3>
+                  <p className="text-sm text-slate-500 mb-4">Existencias valorizadas PEPS</p>
+                  {(!resumen?.distribucionCuentas || resumen.distribucionCuentas.length === 0) ? (
+                      <p className="text-base text-slate-500 py-10 text-center">
+                        Aún no hay existencias valorizadas registradas.
+                      </p>
+                  ) : (
+                      <div className="space-y-3">
+                        {resumen.distribucionCuentas.map((c) => {
+                          const pct =
+                              Number(resumen.valorizacionTotalPeps) > 0
+                                  ? (Number(c.valorTotalPeps) / Number(resumen.valorizacionTotalPeps)) * 100
+                                  : 0;
+                          return (
+                              <div key={c.codigoCuenta} className="space-y-1">
+                                <div className="flex justify-between text-sm">
+                          <span className="font-semibold text-slate-800 truncate pr-2">
+                            {c.codigoCuenta} · {c.nombreCuenta}
+                          </span>
+                                  <span className="font-bold text-[#064c32] whitespace-nowrap">
+                            S/ {Number(c.valorTotalPeps).toFixed(2)}
+                          </span>
+                                </div>
+                                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="h-full bg-[#064c32] rounded-full" style={{ width: `${Math.min(100, pct)}%` }} />
+                                </div>
+                              </div>
+                          );
+                        })}
                       </div>
-
-                      <div className="mt-2 flex items-center justify-between text-[11px] text-[#65736c]">
-
-                        <span>Cód: {p.code}</span>
-
-                        <span className="font-bold text-[#075c3b] hover:underline">
-                      Ver en Kardex →
-                    </span>
-
-                      </div>
-
-                    </div>
-                );
-              })}
-
-            </div>
-
-          </div>
-
-        </div>
+                  )}
+                </div>
+              </div>
+            </>
+        )}
       </div>
   );
 }
-
-export default DashboardView;
-   

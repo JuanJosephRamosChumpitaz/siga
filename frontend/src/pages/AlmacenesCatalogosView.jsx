@@ -1,188 +1,477 @@
-import React, { useState } from 'react'
-import {
-  Building,
-  CheckCircle2,
-  Lock,
-  MapPin,
-  Phone,
-  Plus,
-  Search,
-  Truck,
-  Users,
-  Warehouse,
-  X,
-} from 'lucide-react'
+import { useEffect, useState } from 'react';
+import { Truck, Ruler, Plus, Pencil, Power, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { catalogoService } from '../services/catalogoService';
+import { usePaginacion } from '../hooks/usepaginacion';
+import Paginacion from '../components/ui/paginacion';
 
-export function AlmacenesCatalogosView({
-                                         state,
-                                         onUpdateWarehouses,
-                                         onUpdateAreas,
-                                         onUpdateProviders,
-                                       }) {
-  const { warehouses, areas, providers, locations } = state
-  const [activeTab, setActiveTab] = useState('almacenes')
+export default function AlmacenesCatalogosView() {
+    const [tab, setTab] = useState('proveedores');
+    const [proveedores, setProveedores] = useState([]);
+    const [unidades, setUnidades] = useState([]);
+    const [cargando, setCargando] = useState(true);
+    const [error, setError] = useState('');
+    const [mensaje, setMensaje] = useState('');
 
-  return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight text-[#064c32] md:text-[39px]">
-            Almacenes y Catálogos Auxiliares
-          </h1>
-          <p className="mt-1 text-base text-[#687871] md:text-lg">
-            Centros de custodia, ubicaciones físicas, dependencias solicitantes y directorio de proveedores.
-          </p>
-        </div>
+    const [provEditId, setProvEditId] = useState(null);
+    const [provForm, setProvForm] = useState({
+        ruc: '',
+        razonSocial: '',
+        direccion: '',
+        telefono: '',
+        email: '',
+    });
 
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-[#e0e8e4] bg-white p-2 shadow-[0_2px_10px_rgba(21,55,42,0.03)]">
-          {[
-            { id: 'almacenes', label: 'Almacenes Físicos', icon: Warehouse, count: warehouses.length },
-            { id: 'ubicaciones', label: 'Zonas y Estantes', icon: MapPin, count: locations.length },
-            { id: 'areas', label: 'Áreas Solicitantes', icon: Building, count: areas.length },
-            { id: 'proveedores', label: 'Proveedores Registrados', icon: Truck, count: providers.length },
-          ].map(({ id, label, icon: Icon, count }) => {
-            const isActive = activeTab === id
-            return (
+    const [unidadEditId, setUnidadEditId] = useState(null);
+    const [unidadForm, setUnidadForm] = useState({ nombre: '', abreviatura: '' });
+
+    const cargarTodo = async () => {
+        setCargando(true);
+        setError('');
+        try {
+            const [provData, uniData] = await Promise.all([
+                catalogoService.listarProveedores(),
+                catalogoService.listarUnidades(),
+            ]);
+            setProveedores(provData);
+            setUnidades(uniData);
+        } catch (err) {
+            setError(err.response?.data?.message || 'No se pudieron cargar los catálogos.');
+        } finally {
+            setCargando(false);
+        }
+    };
+
+    useEffect(() => {
+        cargarTodo();
+    }, []);
+
+    const notificar = (texto) => {
+        setMensaje(texto);
+        setError('');
+        setTimeout(() => setMensaje(''), 4000);
+    };
+
+    const mostrarError = (err, fallback) => {
+        setMensaje('');
+        setError(err.response?.data?.message || err.response?.data?.error || fallback);
+    };
+
+    // --- PROVEEDORES ---
+    const guardarProveedor = async (e) => {
+        e.preventDefault();
+        try {
+            if (provEditId) {
+                await catalogoService.actualizarProveedor(provEditId, provForm);
+                notificar('Proveedor actualizado correctamente.');
+            } else {
+                await catalogoService.crearProveedor(provForm);
+                notificar('Proveedor registrado correctamente.');
+            }
+            setProvEditId(null);
+            setProvForm({ ruc: '', razonSocial: '', direccion: '', telefono: '', email: '' });
+            await cargarTodo();
+        } catch (err) {
+            mostrarError(err, 'No se pudo guardar el proveedor.');
+        }
+    };
+
+    const toggleProveedor = async (p) => {
+        try {
+            await catalogoService.cambiarEstadoProveedor(p.idProveedor, !p.activo);
+            notificar(`Proveedor ${p.activo ? 'desactivado' : 'activado'}.`);
+            await cargarTodo();
+        } catch (err) {
+            mostrarError(err, 'No se pudo cambiar el estado del proveedor.');
+        }
+    };
+
+    // --- UNIDADES ---
+    const guardarUnidad = async (e) => {
+        e.preventDefault();
+        try {
+            if (unidadEditId) {
+                await catalogoService.actualizarUnidad(unidadEditId, unidadForm);
+                notificar('Unidad de medida actualizada.');
+            } else {
+                await catalogoService.crearUnidad(unidadForm);
+                notificar('Unidad de medida registrada.');
+            }
+            setUnidadEditId(null);
+            setUnidadForm({ nombre: '', abreviatura: '' });
+            await cargarTodo();
+        } catch (err) {
+            mostrarError(err, 'No se pudo guardar la unidad de medida.');
+        }
+    };
+
+    const toggleUnidad = async (u) => {
+        try {
+            await catalogoService.cambiarEstadoUnidad(u.idUnidad, !u.activo);
+            notificar(`Unidad ${u.activo ? 'desactivada' : 'activada'}.`);
+            await cargarTodo();
+        } catch (err) {
+            mostrarError(err, 'No se pudo cambiar el estado de la unidad.');
+        }
+    };
+
+    const pagProveedores = usePaginacion(proveedores, 10);
+    const pagUnidades = usePaginacion(unidades, 10);
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-3xl font-bold text-[#064c32]">Proveedores y Unidades de Medida</h2>
+                <p className="text-base text-slate-600 mt-1">
+                    Registra proveedores para las Notas de Entrada (NEA) y unidades de medida para el catálogo de bienes.
+                </p>
+            </div>
+
+            {error && (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-base">
+                    <AlertCircle className="w-5 h-5 shrink-0" />
+                    <span>{error}</span>
+                </div>
+            )}
+
+            {mensaje && (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-base">
+                    <CheckCircle2 className="w-5 h-5 shrink-0" />
+                    <span>{mensaje}</span>
+                </div>
+            )}
+
+            <div className="flex flex-wrap gap-3 border-b border-slate-200 pb-3">
                 <button
-                    key={id}
-                    onClick={() => setActiveTab(id)}
-                    className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${
-                        isActive
-                            ? 'bg-[#075c3b] text-white shadow-xs'
-                            : 'text-[#586860] hover:bg-[#edf3f0] hover:text-[#075c3b]'
+                    type="button"
+                    onClick={() => setTab('proveedores')}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-base font-semibold cursor-pointer ${
+                        tab === 'proveedores'
+                            ? 'bg-[#064c32] text-white'
+                            : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
                     }`}
                 >
-                  <Icon className="size-4" />
-                  <span>{label}</span>
-                  <span
-                      className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                          isActive ? 'bg-white/20 text-white' : 'bg-[#edf3f0] text-[#075c3b]'
-                      }`}
-                  >
-                {count}
-              </span>
+                    <Truck className="w-5 h-5" />
+                    Proveedores ({proveedores.length})
                 </button>
-            )
-          })}
+
+                <button
+                    type="button"
+                    onClick={() => setTab('unidades')}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-base font-semibold cursor-pointer ${
+                        tab === 'unidades'
+                            ? 'bg-[#064c32] text-white'
+                            : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
+                    }`}
+                >
+                    <Ruler className="w-5 h-5" />
+                    Unidades de Medida ({unidades.length})
+                </button>
+            </div>
+
+            {cargando ? (
+                <div className="bg-white rounded-2xl p-8 border border-slate-200 text-center text-lg text-slate-600">
+                    Cargando catálogos...
+                </div>
+            ) : (
+                <>
+                    {tab === 'proveedores' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                            <form
+                                onSubmit={guardarProveedor}
+                                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 lg:sticky lg:top-0"
+                            >
+                                <h3 className="text-xl font-bold text-slate-900">
+                                    {provEditId ? 'Editar Proveedor' : 'Nuevo Proveedor'}
+                                </h3>
+                                <div>
+                                    <label className="block text-base font-medium text-slate-700 mb-1">RUC (11 dígitos) *</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        maxLength={11}
+                                        pattern="\d{11}"
+                                        placeholder="20123456789"
+                                        value={provForm.ruc}
+                                        onChange={(e) => setProvForm({ ...provForm, ruc: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-[#064c32]"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-base font-medium text-slate-700 mb-1">Razón Social *</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="Ej. Distribuidora Cañete S.A.C."
+                                        value={provForm.razonSocial}
+                                        onChange={(e) => setProvForm({ ...provForm, razonSocial: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-[#064c32]"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-base font-medium text-slate-700 mb-1">Dirección</label>
+                                    <input
+                                        type="text"
+                                        value={provForm.direccion}
+                                        onChange={(e) => setProvForm({ ...provForm, direccion: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-[#064c32]"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-base font-medium text-slate-700 mb-1">Teléfono</label>
+                                        <input
+                                            type="text"
+                                            value={provForm.telefono}
+                                            onChange={(e) => setProvForm({ ...provForm, telefono: e.target.value })}
+                                            className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-[#064c32]"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-base font-medium text-slate-700 mb-1">Correo</label>
+                                        <input
+                                            type="email"
+                                            value={provForm.email}
+                                            onChange={(e) => setProvForm({ ...provForm, email: e.target.value })}
+                                            className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-[#064c32]"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="submit"
+                                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#064c32] hover:bg-[#053b27] text-white text-base font-semibold cursor-pointer"
+                                    >
+                                        <Plus className="w-5 h-5" />
+                                        {provEditId ? 'Actualizar' : 'Guardar Proveedor'}
+                                    </button>
+                                    {provEditId && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setProvEditId(null);
+                                                setProvForm({ ruc: '', razonSocial: '', direccion: '', telefono: '', email: '' });
+                                            }}
+                                            className="px-4 py-3 rounded-xl border border-slate-300 text-base font-medium cursor-pointer"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    )}
+                                </div>
+                            </form>
+
+                            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                        <tr className="bg-[#064c32] text-white text-sm uppercase">
+                                            <th className="py-3.5 px-4">RUC</th>
+                                            <th className="py-3.5 px-4">Razón Social / Dirección</th>
+                                            <th className="py-3.5 px-4">Contacto</th>
+                                            <th className="py-3.5 px-4">Estado</th>
+                                            <th className="py-3.5 px-4 text-right">Acciones</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200 text-base">
+                                        {pagProveedores.itemsPaginados.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={5} className="py-8 text-center text-slate-500">
+                                                    No hay proveedores registrados.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            pagProveedores.itemsPaginados.map((p) => (
+                                                <tr key={p.idProveedor} className="hover:bg-slate-50">
+                                                    <td className="py-3.5 px-4 font-mono">{p.ruc}</td>
+                                                    <td className="py-3.5 px-4">
+                                                        <div className="font-semibold">{p.razonSocial}</div>
+                                                        <div className="text-sm text-slate-500">{p.direccion || 'Sin dirección'}</div>
+                                                    </td>
+                                                    <td className="py-3.5 px-4 text-sm text-slate-700">
+                                                        <div>{p.telefono || '—'}</div>
+                                                        <div className="text-slate-500">{p.email || ''}</div>
+                                                    </td>
+                                                    <td className="py-3.5 px-4">
+                              <span
+                                  className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                      p.activo ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                                  }`}
+                              >
+                                {p.activo ? 'Activo' : 'Inactivo'}
+                              </span>
+                                                    </td>
+                                                    <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setProvEditId(p.idProveedor);
+                                                                setProvForm({
+                                                                    ruc: p.ruc,
+                                                                    razonSocial: p.razonSocial,
+                                                                    direccion: p.direccion || '',
+                                                                    telefono: p.telefono || '',
+                                                                    email: p.email || '',
+                                                                });
+                                                            }}
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
+                                                        >
+                                                            <Pencil className="w-4 h-4" /> Editar
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleProveedor(p)}
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
+                                                        >
+                                                            <Power className="w-4 h-4" /> {p.activo ? 'Desactivar' : 'Activar'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <Paginacion
+                                    paginaActual={pagProveedores.paginaActual}
+                                    totalPaginas={pagProveedores.totalPaginas}
+                                    totalRegistros={pagProveedores.totalRegistros}
+                                    porPagina={pagProveedores.porPagina}
+                                    desde={pagProveedores.desde}
+                                    hasta={pagProveedores.hasta}
+                                    onCambiarPagina={pagProveedores.irAPagina}
+                                    onCambiarPorPagina={pagProveedores.cambiarPorPagina}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {tab === 'unidades' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                            <form
+                                onSubmit={guardarUnidad}
+                                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 lg:sticky lg:top-0"
+                            >
+                                <h3 className="text-xl font-bold text-slate-900">
+                                    {unidadEditId ? 'Editar Unidad' : 'Nueva Unidad de Medida'}
+                                </h3>
+                                <div>
+                                    <label className="block text-base font-medium text-slate-700 mb-1">Nombre *</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="Ej. Unidad, Kilogramo, Litro, Caja, Millar"
+                                        value={unidadForm.nombre}
+                                        onChange={(e) => setUnidadForm({ ...unidadForm, nombre: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-[#064c32]"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-base font-medium text-slate-700 mb-1">Abreviatura</label>
+                                    <input
+                                        type="text"
+                                        maxLength={15}
+                                        placeholder="Ej. UND, KG, LT, CJA"
+                                        value={unidadForm.abreviatura}
+                                        onChange={(e) => setUnidadForm({ ...unidadForm, abreviatura: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-xl border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-[#064c32]"
+                                    />
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="submit"
+                                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#064c32] hover:bg-[#053b27] text-white text-base font-semibold cursor-pointer"
+                                    >
+                                        <Plus className="w-5 h-5" />
+                                        {unidadEditId ? 'Actualizar' : 'Guardar Unidad'}
+                                    </button>
+                                    {unidadEditId && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setUnidadEditId(null);
+                                                setUnidadForm({ nombre: '', abreviatura: '' });
+                                            }}
+                                            className="px-4 py-3 rounded-xl border border-slate-300 text-base font-medium cursor-pointer"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    )}
+                                </div>
+                            </form>
+
+                            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                        <tr className="bg-[#064c32] text-white text-sm uppercase">
+                                            <th className="py-3.5 px-4">Unidad</th>
+                                            <th className="py-3.5 px-4">Abreviatura</th>
+                                            <th className="py-3.5 px-4">Estado</th>
+                                            <th className="py-3.5 px-4 text-right">Acciones</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200 text-base">
+                                        {pagUnidades.itemsPaginados.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={4} className="py-8 text-center text-slate-500">
+                                                    No hay unidades de medida registradas.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            pagUnidades.itemsPaginados.map((u) => (
+                                                <tr key={u.idUnidad} className="hover:bg-slate-50">
+                                                    <td className="py-3.5 px-4 font-semibold">{u.nombre}</td>
+                                                    <td className="py-3.5 px-4 font-mono text-slate-600">{u.abreviatura || '—'}</td>
+                                                    <td className="py-3.5 px-4">
+                              <span
+                                  className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                      u.activo ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                                  }`}
+                              >
+                                {u.activo ? 'Activa' : 'Inactiva'}
+                              </span>
+                                                    </td>
+                                                    <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setUnidadEditId(u.idUnidad);
+                                                                setUnidadForm({ nombre: u.nombre, abreviatura: u.abreviatura || '' });
+                                                            }}
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
+                                                        >
+                                                            <Pencil className="w-4 h-4" /> Editar
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleUnidad(u)}
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-100 cursor-pointer"
+                                                        >
+                                                            <Power className="w-4 h-4" /> {u.activo ? 'Desactivar' : 'Activar'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <Paginacion
+                                    paginaActual={pagUnidades.paginaActual}
+                                    totalPaginas={pagUnidades.totalPaginas}
+                                    totalRegistros={pagUnidades.totalRegistros}
+                                    porPagina={pagUnidades.porPagina}
+                                    desde={pagUnidades.desde}
+                                    hasta={pagUnidades.hasta}
+                                    onCambiarPagina={pagUnidades.irAPagina}
+                                    onCambiarPorPagina={pagUnidades.cambiarPorPagina}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
         </div>
-
-        {/* TAB 1: Almacenes */}
-        {activeTab === 'almacenes' && (
-            <div className="grid gap-4 md:grid-cols-3">
-              {warehouses.map((w) => (
-                  <div
-                      key={w.id}
-                      className="flex flex-col justify-between rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)] transition hover:border-[#075c3b]/40"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold text-[#075c3b] bg-[#edf3f0] px-2 py-0.5 rounded">
-                    {w.code}
-                  </span>
-                        {w.isLockedForInventory ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#ffe4e5] px-2.5 py-0.5 text-xs font-bold text-[#dc252d]">
-                      <Lock className="size-3" /> Bloqueado x Inventario
-                    </span>
-                        ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#dff1e4] px-2.5 py-0.5 text-xs font-bold text-[#08783f]">
-                      <CheckCircle2 className="size-3" /> Operativo
-                    </span>
-                        )}
-                      </div>
-
-                      <h3 className="mt-3 text-base font-bold text-[#20372e]">{w.name}</h3>
-                      <p className="mt-1 text-xs text-[#687871]">{w.location}</p>
-                    </div>
-
-                    <div className="mt-4 border-t border-[#e8eeeb] pt-3 text-xs text-[#586860] space-y-1">
-                      <p>
-                        Responsable: <strong className="text-[#20372e]">{w.manager}</strong>
-                      </p>
-                      <p>Teléfono: {w.phone}</p>
-                    </div>
-                  </div>
-              ))}
-            </div>
-        )}
-
-        {/* TAB 2: Ubicaciones */}
-        {activeTab === 'ubicaciones' && (
-            <div className="rounded-2xl border border-[#e0e8e4] bg-white shadow-[0_2px_10px_rgba(21,55,42,0.03)] overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#075c3b] font-bold text-white">
-                  <tr>
-                    <th className="p-3 pl-4">Almacén</th>
-                    <th className="p-3">Zona</th>
-                    <th className="p-3">Estante / Módulo</th>
-                    <th className="p-3">Nivel / Altura</th>
-                  </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#e8eeeb]">
-                  {locations.map((loc) => {
-                    const wh = warehouses.find((w) => w.id === loc.warehouseId)
-                    return (
-                        <tr key={loc.id} className="hover:bg-[#f7faf8]">
-                          <td className="p-3 pl-4 font-bold text-[#20372e]">{wh?.name}</td>
-                          <td className="p-3 text-[#075c3b] font-semibold">{loc.zone}</td>
-                          <td className="p-3 text-[#586860]">{loc.shelf}</td>
-                          <td className="p-3 text-[#586860]">{loc.level}</td>
-                        </tr>
-                    )
-                  })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-        )}
-
-        {/* TAB 3: Áreas Solicitantes */}
-        {activeTab === 'areas' && (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {areas.map((a) => (
-                  <div key={a.id} className="rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)]">
-              <span className="font-mono text-xs font-bold text-[#075c3b] bg-[#edf3f0] px-2 py-0.5 rounded">
-                {a.code}
-              </span>
-                    <h3 className="mt-2 text-base font-bold text-[#20372e]">{a.name}</h3>
-                    <p className="mt-1 text-xs text-[#687871]">{a.building}</p>
-                    <div className="mt-3 border-t border-[#e8eeeb] pt-2 text-xs text-[#586860]">
-                      <p>
-                        Jefatura / Responsable: <strong className="text-[#20372e]">{a.manager}</strong>
-                      </p>
-                      <p className="text-[11px] text-[#075c3b]">{a.email}</p>
-                    </div>
-                  </div>
-              ))}
-            </div>
-        )}
-
-        {/* TAB 4: Proveedores */}
-        {activeTab === 'proveedores' && (
-            <div className="grid gap-4 md:grid-cols-2">
-              {providers.map((p) => (
-                  <div key={p.id} className="rounded-2xl border border-[#e0e8e4] bg-white p-5 shadow-[0_2px_10px_rgba(21,55,42,0.03)]">
-                    <div className="flex items-center justify-between">
-                <span className="font-mono text-xs font-bold text-[#075c3b] bg-[#edf3f0] px-2.5 py-0.5 rounded-md">
-                  RUC: {p.ruc}
-                </span>
-                      <span className="text-[11px] font-semibold text-[#687871]">{p.rubro}</span>
-                    </div>
-                    <h3 className="mt-2 text-sm font-bold text-[#20372e]">{p.name}</h3>
-                    <p className="mt-1 text-xs text-[#687871]">{p.address}</p>
-                    <div className="mt-3 flex items-center justify-between border-t border-[#e8eeeb] pt-2 text-xs text-[#586860]">
-                <span>
-                  Contacto: <strong className="text-[#20372e]">{p.contactName}</strong>
-                </span>
-                      <span>Tel: {p.phone}</span>
-                    </div>
-                  </div>
-              ))}
-            </div>
-        )}
-      </div>
-  )
+    );
 }
-
-export default AlmacenesCatalogosView;
